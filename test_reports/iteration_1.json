@@ -1,0 +1,59 @@
+{
+  "summary": "End-to-end testing of CMS Edu AI auth + LMS stubs. Backend pytest: 24/25 passing. Frontend: all key flows (3-role login, register, forgot/reset, RBAC redirect, dashboards, sidebar collapse, session persistence, logout) work via Bearer-token auth. Two issues found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/auth/login", "issue": "Brute-force lockout never triggers behind k8s ingress. Lockout key is `request.client.host:email`, but Cloudflare/ingress proxies rotate request.client.host across pods, so attempts never accumulate. 7 wrong attempts all returned 401, never 429. Fix: key lockout on email alone (or honor X-Forwarded-For) so the threshold is reachable in proxy environments."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Register page (/register)", "issue": "Body text scan did not contain the word 'role' in any case — role dropdown label may be missing/hidden. Verify role select is visible & labeled per requirement: 'role dropdown lets user pick'.", "selector": "/register", "priority": "MEDIUM"},
+      {"component": "Mobile Sidebar Drawer", "issue": "At 390x844 viewport, clicking [data-testid=topbar-burger] does not open [data-testid=sidebar-mobile]. Drawer state not toggling on mobile. Check that DashboardLayout passes mobileOpen state from Topbar burger to Sidebar.", "selector": "[data-testid=sidebar-mobile]", "priority": "MEDIUM"},
+      {"component": "Recharts ResponsiveContainer", "issue": "Many console warnings: 'The width(-1) and height(-1) of chart should be greater than 0'. Charts ultimately render, but parent container has 0 height on first paint. Add explicit min-height to chart wrapper div.", "selector": "ResponsiveContainer", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_flows": [
+    "Login selection page shows 3 role cards with correct testids",
+    "Role card click navigates to /login/:role",
+    "Demo-fill button + submit logs in for admin/instructor/student",
+    "Bearer token persists in localStorage across hard refresh (session persistence)",
+    "Topbar profile dropdown -> Logout clears token, redirects to /login",
+    "After logout, visiting /admin/dashboard correctly bounces to /login",
+    "Student accessing /admin/dashboard redirected to /unauthorized with Back/Sign out buttons",
+    "Sidebar collapse + expand work via testids sidebar-collapse-button / sidebar-expand-button",
+    "Admin Users page (/admin/users) renders seeded users including admin@cmsedu.ai",
+    "Forgot password page returns dev_token panel; reset flow updates password (backend test confirms login succeeds with new password)",
+    "Student dashboard shows streak (14 days), XP progress (4280/5000), badges, weekly chart, leaderboard"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_auth_lms.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Backend: Make brute-force lockout proxy-safe — key on email only, or trust X-Forwarded-For for IP.",
+    "Frontend: Verify /register page exposes a Role select/dropdown with label visible (testid recommended: register-role-select).",
+    "Frontend: Fix mobile sidebar drawer — burger button click must set sidebar mobileOpen=true so [data-testid=sidebar-mobile] becomes visible at 390px viewport.",
+    "Frontend (cosmetic): Wrap Recharts ResponsiveContainer in a div with explicit height to silence width(-1)/height(-1) warnings."
+  ],
+  "critical_code_review_comments": [
+    "server.py line 245: `create_refresh_token(...) if payload.remember else create_refresh_token(...)` — both branches identical, ternary is dead code. Either differentiate token TTL by remember or remove the conditional.",
+    "server.py uses deprecated FastAPI @app.on_event('startup') — should migrate to lifespan context manager (FastAPI >=0.95).",
+    "auth lockout uses `request.client.host` which is unreliable behind any reverse proxy / k8s ingress (this caused our test failure). Production needs trusted proxy header parsing.",
+    "/api/auth/forgot-password returns the reset token in the response body (`dev_token`). This is fine for dev but MUST be gated behind an env flag (e.g. ENV=dev) before production — currently it leaks reset tokens to anyone who knows a registered email.",
+    "Many sample dashboard numbers (revenue, KPIs) are hardcoded in route handlers — fine for stub but mark as TODO for real aggregation.",
+    "CORS uses `allow_origin_regex=r'https?://.*'` with `allow_credentials=True` — effectively reflects any origin. Tighten to known preview/prod hosts before launch."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_auth_lms.py (new)"
+  ],
+  "success_rate": {"backend": "96% (24/25)", "frontend": "~90% (key flows pass; mobile drawer + register role label flagged)"},
+  "test_credentials": "admin@cmsedu.ai / Demo@123, instructor@cmsedu.ai / Demo@123, student@cmsedu.ai / Demo@123 — all verified working",
+  "seed_data_creation": "Tests create transient TEST users via /api/auth/register (random hex emails) for register/forgot/lockout cases. Not cleaned up but isolated by random emails.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Use BASE_URL=https://role-auth-3.preview.emergentagent.com (from frontend/.env). All backend auth uses Bearer header (Authorization: Bearer <access_token>). /api/auth/refresh requires httpOnly refresh_token cookie which doesn't survive cross-origin preview — skip it. Frontend testids: role-card-{role}, login-fill-demo, login-submit-button, sidebar-collapse-button, sidebar-expand-button, topbar-profile-trigger, topbar-menu-logout, topbar-burger, sidebar-mobile, sidebar-mobile-close. Re-run pytest with: cd /app && python -m pytest backend/tests/test_auth_lms.py -v.",
+  "rca of the issue": "Lockout RCA: backend/server.py L227 `ip = request.client.host` — under k8s ingress this returns the immediate hop (often varying ingress pod IP or the LB pod), so identifier `ip:email` differs across requests. The login_attempts collection accumulates separate counters per IP, never reaching threshold 5. Mitigation: extract client IP from `X-Forwarded-For` header (first entry) when behind a trusted proxy, or simply key the lockout by email only (still rate-limited per account)."
+}
