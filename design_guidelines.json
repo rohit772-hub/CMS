@@ -1,0 +1,139 @@
+{
+  "project_name": "CMS Edu AI",
+  "theme": "dark",
+  "archetype": "Jewel & Luxury (Archetype 5) modified for Tech/AI",
+  "emotion_tone": "Premium, Futuristic, Trustworthy, Engaging",
+  "colors": {
+    "background": {
+      "base": "#060814",
+      "surface": "#0B1120",
+      "surface_elevated": "#131B2F"
+    },
+    "primary": {
+      "default": "#0055FF",
+      "glow": "#00E5FF",
+      "gradient": "bg-gradient-to-r from-[#00E5FF] to-[#0055FF]"
+    },
+    "secondary": {
+      "gamification_gold": "#FFC800",
+      "gamification_neon_green": "#00FF66",
+      "accent_purple": "#8A2BE2"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#A0ABC0",
+      "muted": "#64748B"
+    },
+    "border": {
+      "glass": "rgba(255, 255, 255, 0.1)",
+      "light": "rgba(255, 255, 255, 0.05)"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "heading": "'Outfit', sans-serif",
+      "body": "'Plus Jakarta Sans', sans-serif",
+      "mono": "'JetBrains Mono', monospace"
+    },
+    "scale": {
+      "h1": "text-4xl md:text-5xl lg:text-6xl tracking-tighter font-semibold text-white",
+      "h2": "text-2xl md:text-3xl lg:text-4xl tracking-tight font-medium text-white",
+      "h3": "text-xl md:text-2xl tracking-tight font-medium text-white",
+      "h4": "text-lg md:text-xl font-medium text-white",
+      "body": "text-base text-[#A0ABC0] leading-relaxed",
+      "small": "text-sm text-[#64748B]",
+      "overline": "text-xs uppercase tracking-[0.2em] font-bold text-[#00E5FF]"
+    }
+  },
+  "surfaces_and_glassmorphism": {
+    "glass_panel_primary": "bg-[#0B1120]/60 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-2xl",
+    "glass_panel_secondary": "bg-white/5 backdrop-blur-xl border border-white/5 rounded-xl",
+    "solid_card": "bg-[#131B2F] border border-white/5 rounded-xl shadow-lg",
+    "glow_effect": "relative before:absolute before:-inset-0.5 before:bg-gradient-to-r before:from-[#00E5FF] before:to-[#0055FF] before:rounded-xl before:blur-md before:opacity-30 before:-z-10",
+    "interactive_hover": "transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,229,255,0.2)] hover:border-white/20"
+  },
+  "layout_patterns": {
+    "auth": {
+      "split_screen": {
+        "container": "min-h-screen w-full flex bg-[#060814]",
+        "left_visual": "hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center p-12",
+        "right_form": "w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-24 bg-[#060814] relative z-10"
+      }
+    },
+    "dashboard": {
+      "container": "min-h-screen bg-[#060814] flex text-white font-['Plus_Jakarta_Sans']",
+      "sidebar": "fixed inset-y-0 left-0 z-50 flex flex-col bg-[#0B1120]/80 backdrop-blur-2xl border-r border-white/10 transition-all duration-300",
+      "topbar": "sticky top-0 z-40 w-full h-16 flex items-center justify-between px-6 bg-[#0B1120]/80 backdrop-blur-xl border-b border-white/10",
+      "main_content": "flex-1 flex flex-col overflow-hidden pl-0 transition-all duration-300",
+      "bento_grid": "grid grid-cols-1 md:grid-cols-4 lg:grid-cols-12 gap-6 p-6"
+    }
+  },
+  "animations": {
+    "page_transition": {
+      "initial": { "opacity": 0, "y": 20 },
+      "animate": { "opacity": 1, "y": 0 },
+      "exit": { "opacity": 0, "y": -20 },
+      "transition": { "duration": 0.4, "ease": [0.22, 1, 0.36, 1] }
+    },
+    "stagger_children": {
+      "variants": {
+        "hidden": { "opacity": 0 },
+        "show": {
+          "opacity": 1,
+          "transition": { "staggerChildren": 0.1 }
+        }
+      }
+    },
+    "background_particles": "Use react-tsparticles for subtle floating cyan/blue shapes in the auth left panel background."
+  },
+  "gamification_specs": {
+    "progress_circles": "Use stroke-dasharray/stroke-dashoffset SVGs wrapped in framer-motion for smooth circular progress bars. Color: gradient from #00E5FF to #0055FF.",
+    "badges": "Glassmorphism containers with floating 3D icons, heavy drop-shadows using #FFC800 (gold) or #00E5FF (cyan) for glow.",
+    "streak_indicator": "Use fire icon with animated orange/red gradient text fill, glowing border."
+  },
+  "images_and_media": {
+    "auth_illustration_admin": {
+      "url": "https://images.unsplash.com/photo-1771773490670-7376a45c0e96?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzJ8MHwxfHNlYXJjaHwzfHxkYXRhJTIwY2VudGVyJTIwYWJzdHJhY3QlMjBzZXJ2ZXIlMjBibHVlfGVufDB8fHx8MTc3Nzc4ODM5MHww&ixlib=rb-4.1.0&q=85",
+      "description": "Abstract blue light streaks forming a tunnel effect, perfect for Admin auth panel."
+    },
+    "auth_illustration_instructor": {
+      "url": "https://images.unsplash.com/photo-1758685734511-4f49ce9a382b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NDh8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBwb3J0cmFpdCUyMGluc3RydWN0b3IlMjBwcm9mZXNzb3J8ZW58MHx8fHwxNzc3Nzg4MzkwfDA&ixlib=rb-4.1.0&q=85",
+      "description": "Smiling man with glasses in front of chalkboard, ideal for Instructor auth panel."
+    },
+    "auth_illustration_student": {
+      "url": "https://images.unsplash.com/photo-1758270705172-07b53627dfcb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjB1bml2ZXJzaXR5JTIwc3R1ZGVudCUyMGxlYXJuaW5nJTIwbGFwdG9wfGVufDB8fHx8MTc3Nzc4ODM5MXww&ixlib=rb-4.1.0&q=85",
+      "description": "Group of students gathered around a laptop, ideal for Student auth panel."
+    },
+    "dashboard_hero_banner": {
+      "url": "https://images.unsplash.com/photo-1776875097847-49bd9bcf1eca?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMGRhcmslMjBibHVlJTIwZ2VvbWV0cmljfGVufDB8fHx8MTc3Nzc4ODM5Nnww&ixlib=rb-4.1.0&q=85",
+      "description": "Dark blue abstract background with soft geometric shapes for dashboard top headers."
+    },
+    "course_ai_thumbnail": {
+      "url": "https://images.unsplash.com/photo-1737505599159-5ffc1dcbc08f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzF8MHwxfHNlYXJjaHwyfHxhcnRpZmljaWFsJTIwaW50ZWxsaWdlbmNlJTIwYWJzdHJhY3QlMjBibHVlJTIwbmV0d29ya3xlbnwwfHx8fDE3Nzc3ODgzOTZ8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Artificial Intelligence abstract blue network thumbnail."
+    },
+    "gamification_abstract": {
+      "url": "https://images.unsplash.com/photo-1661462328450-e0fa1bac6423?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzN8MHwxfHNlYXJjaHw0fHwzZCUyMG5lb24lMjBzaGFwZXMlMjBmbG9hdGluZ3xlbnwwfHx8fDE3Nzc3ODgzOTZ8MA&ixlib=rb-4.1.0&q=85",
+      "description": "3D floating shapes for gamified empty states or badge placeholders."
+    }
+  },
+  "component_strategies": {
+    "forms": "Use Shadcn UI customized with bg-transparent/5, white text, and cyan focus rings. Label text should be text-sm font-medium text-[#A0ABC0].",
+    "buttons": "Primary buttons: bg-gradient-to-r from-[#00E5FF] to-[#0055FF] text-white font-semibold shadow-[0_4px_14px_0_rgba(0,229,255,0.39)] hover:shadow-[0_6px_20px_rgba(0,229,255,0.23)] hover:-translate-y-0.5 transition duration-200. Secondary: bg-white/5 border border-white/10 hover:bg-white/10.",
+    "tables": "Shadcn Table customized with transparent headers, border-b border-white/5, text-sm text-[#A0ABC0] for rows, text-white for key identifiers.",
+    "charts": "Recharts. Use <ResponsiveContainer>. Tooltip must be customized with glassmorphism bg (#0B1120/80 backdrop-blur) and white/10 borders. Line/Bar colors must use primary gradient colors.",
+    "icons": "Use lucide-react. Stroke width 1.5 for elegance."
+  },
+  "testing": {
+    "attributes": "All interactive and key informational elements MUST include a `data-testid` attribute (e.g., `data-testid=\"admin-login-button\"`)."
+  },
+  "general_instructions_for_main_agent": [
+    "Install and use 'framer-motion' for all page transitions and complex micro-interactions.",
+    "Install and use 'react-tsparticles' for the animated background in the split-screen auth layouts.",
+    "Do NOT use 'Inter' or 'Roboto'. Inject Google Fonts 'Outfit' and 'Plus Jakarta Sans' via index.css.",
+    "Always apply optical alignment over strict geometric centering for asymmetric content.",
+    "Strictly follow the JSON media URLs—do NOT use placeholders (via.placeholder.com).",
+    "Implement the collapsible sidebar with Radix UI Tooltips (Shadcn Tooltip) for icon-only mode.",
+    "Keep spacing generous (p-6, p-8) and avoid cramped layouts."
+  ]
+}
