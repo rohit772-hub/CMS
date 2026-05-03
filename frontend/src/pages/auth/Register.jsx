@@ -70,9 +70,9 @@ export default function Register() {
           </div>
         </div>
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-[#A0ABC0]">I am a…</Label>
+          <Label className="text-sm font-medium text-[#A0ABC0]">Role — I am a…</Label>
           <Select value={form.role} onValueChange={set("role")}>
-            <SelectTrigger className="h-12 bg-white/5 border-white/10 text-white" data-testid="register-role-select">
+            <SelectTrigger className="h-12 bg-white/5 border-white/10 text-white" data-testid="register-role-select" aria-label="Select your role">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-[#0B1120] border-white/10 text-white">

@@ -164,6 +164,7 @@ LOCKOUT_MINUTES = 15
 
 
 async def _check_lockout(identifier: str):
+    # identifier is email-only for proxy-safe accounting (k8s ingress rotates client.host)
     rec = await db.login_attempts.find_one({"_id": identifier})
     if not rec:
         return
@@ -224,8 +225,7 @@ async def register(payload: RegisterReq, response: Response):
 @api.post("/auth/login")
 async def login(payload: LoginReq, request: Request, response: Response):
     email = payload.email.lower()
-    ip = request.client.host if request.client else "unknown"
-    identifier = f"{ip}:{email}"
+    identifier = email  # proxy-safe: key lockout by email only
     await _check_lockout(identifier)
 
     user = await db.users.find_one({"email": email})
