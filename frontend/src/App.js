@@ -21,6 +21,8 @@ import PlaceholderPage from "@/components/dashboard/PlaceholderPage";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminCourses from "@/pages/admin/AdminCourses";
+import AdminProfile from "@/pages/admin/AdminProfile";
+import AdminSettings from "@/pages/admin/AdminSettings";
 
 import InstructorDashboard from "@/pages/instructor/InstructorDashboard";
 import InstructorCourses from "@/pages/instructor/InstructorCourses";
@@ -57,8 +59,10 @@ function AppRouter() {
       <Route path="/admin" element={<ProtectedRoute allow={["admin"]}><DashboardLayout /></ProtectedRoute>}>
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="profile" element={<AdminProfile />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="courses" element={<AdminCourses />} />
+        <Route path="settings" element={<AdminSettings />} />
         <Route path="classes" element={<PlaceholderPage eyebrow="Resources" title="Classes" subtitle="Organise batches, schedules, and classrooms." bullets={["Create class with start/end dates","Assign students in bulk","Attendance tracking"]} />} />
         <Route path="quiz" element={<PlaceholderPage eyebrow="Resources" title="Quizzes" subtitle="Author graded assessments and auto-mark." bullets={["MCQ, short answer, code","Timed mode","Plagiarism flags"]} />} />
         <Route path="plans" element={<PlaceholderPage eyebrow="Store" title="Plans & Subscriptions" subtitle="Configure pricing tiers, trials and coupons." />} />
@@ -69,7 +73,6 @@ function AppRouter() {
         <Route path="notifications" element={<PlaceholderPage eyebrow="Communication" title="Notifications" subtitle="In-app announcements and alerts." />} />
         <Route path="emails" element={<PlaceholderPage eyebrow="Communication" title="Emails" subtitle="Design and schedule marketing & transactional emails." />} />
         <Route path="announcements" element={<PlaceholderPage eyebrow="Communication" title="Announcements" subtitle="Broadcast to instructors or students." />} />
-        <Route path="settings" element={<PlaceholderPage eyebrow="Settings" title="Platform settings" subtitle="Branding, auth, gateways and security." />} />
         <Route path="support" element={<PlaceholderPage eyebrow="Support" title="Support center" subtitle="Help content, feedback and tickets." />} />
       </Route>
 
@@ -77,6 +80,7 @@ function AppRouter() {
       <Route path="/instructor" element={<ProtectedRoute allow={["instructor", "admin"]}><DashboardLayout /></ProtectedRoute>}>
         <Route index element={<Navigate to="/instructor/dashboard" replace />} />
         <Route path="dashboard" element={<InstructorDashboard />} />
+        <Route path="profile" element={<AdminProfile />} />
         <Route path="courses" element={<InstructorCourses />} />
         <Route path="students" element={<PlaceholderPage eyebrow="Classroom" title="My students" subtitle="Track progress, attendance and engagement." />} />
         <Route path="assignments" element={<PlaceholderPage eyebrow="Grading" title="Assignments" subtitle="Create, grade and give feedback." />} />

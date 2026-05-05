@@ -94,6 +94,28 @@ class GoogleSessionReq(BaseModel):
     session_id: str
 
 
+class UpdateProfileReq(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=2, max_length=80)
+    avatar_url: Optional[str] = None  # data URI or external URL
+
+
+class ChangePasswordReq(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6, max_length=100)
+
+
+class GeneralSettingsReq(BaseModel):
+    site_name: str = Field(min_length=1, max_length=120)
+    email: EmailStr
+    phone: str = Field(default="", max_length=40)
+    address: str = Field(default="", max_length=400)
+
+
+class PaymentSettingsReq(BaseModel):
+    razorpay_key: str = Field(default="", max_length=200)
+    razorpay_secret: str = Field(default="", max_length=200)
+
+
 # ---------- Helpers ----------
 def doc_to_public(d: dict) -> UserPublic:
     created = d.get("created_at")
@@ -263,6 +285,38 @@ async def me(user: dict = Depends(get_current_user)):
     return doc_to_public(user).model_dump(mode="json")
 
 
+@api.put("/auth/profile")
+async def update_profile(payload: UpdateProfileReq, user: dict = Depends(get_current_user)):
+    update = {}
+    if payload.name is not None:
+        update["name"] = payload.name.strip()
+    if payload.avatar_url is not None:
+        # cap avatar size to ~2MB worth of base64 to protect Mongo
+        if len(payload.avatar_url) > 3_000_000:
+            raise HTTPException(status_code=413, detail="Image too large. Please use under 2MB.")
+        update["avatar_url"] = payload.avatar_url or None
+    if update:
+        await db.users.update_one({"user_id": user["user_id"]}, {"$set": update})
+    fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0, "password_hash": 0})
+    return doc_to_public(fresh).model_dump(mode="json")
+
+
+@api.post("/auth/change-password")
+async def change_password(payload: ChangePasswordReq, user: dict = Depends(get_current_user)):
+    full = await db.users.find_one({"user_id": user["user_id"]})
+    if not full or not full.get("password_hash"):
+        raise HTTPException(status_code=400, detail="This account does not have a password set (Google sign-in).")
+    if not verify_password(payload.current_password, full["password_hash"]):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    if payload.current_password == payload.new_password:
+        raise HTTPException(status_code=400, detail="New password must be different from current password")
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {"password_hash": hash_password(payload.new_password)}},
+    )
+    return {"ok": True}
+
+
 @api.post("/auth/refresh")
 async def refresh_token(request: Request, response: Response):
     token = request.cookies.get("refresh_token")
@@ -400,6 +454,50 @@ async def google_session(payload: GoogleSessionReq, response: Response):
 
 
 # ---------- LMS STUB ROUTES ----------
+DEFAULT_GENERAL = {"site_name": "CMS Edu AI", "email": "hello@cmsedu.ai", "phone": "", "address": ""}
+DEFAULT_PAYMENT = {"razorpay_key": "", "razorpay_secret": ""}
+
+
+async def _get_settings_doc():
+    doc = await db.platform_settings.find_one({"_id": "singleton"}, {"_id": 0})
+    return doc or {}
+
+
+@api.get("/admin/settings")
+async def get_settings(user: dict = Depends(require_role("admin"))):
+    doc = await _get_settings_doc()
+    general = {**DEFAULT_GENERAL, **(doc.get("general") or {})}
+    payment_raw = {**DEFAULT_PAYMENT, **(doc.get("payment") or {})}
+    # Mask the secret in the response — frontend only needs to know it's set
+    payment = {
+        "razorpay_key": payment_raw.get("razorpay_key", ""),
+        "razorpay_secret_set": bool(payment_raw.get("razorpay_secret")),
+    }
+    return {"general": general, "payment": payment}
+
+
+@api.put("/admin/settings/general")
+async def update_general_settings(payload: GeneralSettingsReq, user: dict = Depends(require_role("admin"))):
+    await db.platform_settings.update_one(
+        {"_id": "singleton"},
+        {"$set": {"general": payload.model_dump(), "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    return {"ok": True, "general": payload.model_dump()}
+
+
+@api.put("/admin/settings/payment")
+async def update_payment_settings(payload: PaymentSettingsReq, user: dict = Depends(require_role("admin"))):
+    update = {"payment.razorpay_key": payload.razorpay_key}
+    # Only overwrite secret if a non-empty value is provided
+    if payload.razorpay_secret:
+        update["payment.razorpay_secret"] = payload.razorpay_secret
+    update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.platform_settings.update_one({"_id": "singleton"}, {"$set": update}, upsert=True)
+    doc = await _get_settings_doc()
+    return {"ok": True, "razorpay_key": (doc.get("payment") or {}).get("razorpay_key", ""), "razorpay_secret_set": bool((doc.get("payment") or {}).get("razorpay_secret"))}
+
+
 @api.get("/admin/stats")
 async def admin_stats(user: dict = Depends(require_role("admin"))):
     total_users = await db.users.count_documents({})

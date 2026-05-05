@@ -73,7 +73,7 @@ export default function Topbar({ user, onBurger }) {
             <DropdownMenuItem onClick={() => navigate(`/${user.role}/dashboard`)} data-testid="topbar-menu-dashboard">
               <Sun size={14} className="mr-2" /> Dashboard
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/${user.role}/settings`)} data-testid="topbar-menu-profile">
+            <DropdownMenuItem onClick={() => navigate(`/${user.role}/profile`)} data-testid="topbar-menu-profile">
               <User size={14} className="mr-2" /> Profile
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/${user.role}/settings`)} data-testid="topbar-menu-settings">

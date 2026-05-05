@@ -38,9 +38,10 @@ const ADMIN_NAV = [
     { label: "Announcements", to: "/admin/announcements" },
   ]},
   { type: "group", label: "Settings", icon: Settings, items: [
+    { label: "General", to: "/admin/settings" },
+    { label: "Payment Gateway", to: "/admin/settings#payment" },
     { label: "Branding", to: "/admin/settings?tab=branding" },
     { label: "Google Login", to: "/admin/settings?tab=google" },
-    { label: "Payment Gateway", to: "/admin/settings?tab=payment" },
     { label: "SMTP", to: "/admin/settings?tab=smtp" },
     { label: "Security", to: "/admin/settings?tab=security" },
   ]},
