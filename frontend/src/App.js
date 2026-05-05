@@ -23,6 +23,13 @@ import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminCourses from "@/pages/admin/AdminCourses";
 import AdminProfile from "@/pages/admin/AdminProfile";
 import AdminSettings from "@/pages/admin/AdminSettings";
+import ManageClasses from "@/pages/admin/ManageClasses";
+import ManageCourses from "@/pages/admin/ManageCourses";
+import ManageSubjects from "@/pages/admin/ManageSubjects";
+import ManageChapters from "@/pages/admin/ManageChapters";
+import ManageSchools from "@/pages/admin/ManageSchools";
+import ManageSchoolAdmins from "@/pages/admin/ManageSchoolAdmins";
+import ManageStudents from "@/pages/admin/ManageStudents";
 
 import InstructorDashboard from "@/pages/instructor/InstructorDashboard";
 import InstructorCourses from "@/pages/instructor/InstructorCourses";
@@ -61,9 +68,16 @@ function AppRouter() {
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="profile" element={<AdminProfile />} />
         <Route path="users" element={<AdminUsers />} />
-        <Route path="courses" element={<AdminCourses />} />
+        <Route path="courses" element={<ManageCourses />} />
+        <Route path="courses/legacy" element={<AdminCourses />} />
+        <Route path="classes" element={<ManageClasses />} />
+        <Route path="subjects" element={<ManageSubjects />} />
+        <Route path="chapters" element={<ManageChapters />} />
+        <Route path="schools" element={<ManageSchools />} />
+        <Route path="school-admins" element={<ManageSchoolAdmins />} />
+        <Route path="students" element={<ManageStudents />} />
         <Route path="settings" element={<AdminSettings />} />
-        <Route path="classes" element={<PlaceholderPage eyebrow="Resources" title="Classes" subtitle="Organise batches, schedules, and classrooms." bullets={["Create class with start/end dates","Assign students in bulk","Attendance tracking"]} />} />
+        <Route path="classes" element={<ManageClasses />} />
         <Route path="quiz" element={<PlaceholderPage eyebrow="Resources" title="Quizzes" subtitle="Author graded assessments and auto-mark." bullets={["MCQ, short answer, code","Timed mode","Plagiarism flags"]} />} />
         <Route path="plans" element={<PlaceholderPage eyebrow="Store" title="Plans & Subscriptions" subtitle="Configure pricing tiers, trials and coupons." />} />
         <Route path="products" element={<PlaceholderPage eyebrow="Store" title="Products" subtitle="Physical kits, bundles, merchandise." />} />

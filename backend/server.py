@@ -612,6 +612,240 @@ async def root():
     return {"app": "CMS Edu AI", "status": "ok"}
 
 
+# ---------- Generic Admin Resource CRUD ----------
+# Supports: schools, classes, courses, subjects, chapters, school-admins, students
+RESOURCE_KINDS = {
+    "schools": "schools",
+    "classes": "classes",
+    "courses": "courses_admin",
+    "subjects": "subjects",
+    "chapters": "chapters",
+    "school-admins": "school_admins",
+    "students": "students_admin",
+}
+
+# Fields to search across (text match)
+RESOURCE_SEARCH_FIELDS = {
+    "schools": ["name", "email", "phone", "principal_name", "code"],
+    "classes": ["name"],
+    "courses": ["name", "class_names"],
+    "subjects": ["name", "class_names", "course_names"],
+    "chapters": ["name", "class_name", "course_name", "subject_name"],
+    "school-admins": ["name", "email", "mobile", "school_name"],
+    "students": ["name", "email", "phone", "parent_name", "school_name", "division"],
+}
+
+
+def _activity_doc(kind: str, action: str, label: str, by_user: dict):
+    return {
+        "kind": kind, "action": action, "label": label,
+        "by_user_id": by_user.get("user_id"), "by_name": by_user.get("name"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+async def _log_activity(kind: str, action: str, label: str, by_user: dict):
+    try:
+        await db.recent_activities.insert_one(_activity_doc(kind, action, label, by_user))
+    except Exception as e:
+        logger.warning("activity log failed: %s", e)
+
+
+def _require_kind(kind: str) -> str:
+    if kind not in RESOURCE_KINDS:
+        raise HTTPException(status_code=404, detail=f"Unknown resource kind: {kind}")
+    return RESOURCE_KINDS[kind]
+
+
+def _clean(doc: dict) -> dict:
+    d = dict(doc)
+    d.pop("_id", None)
+    d.pop("password_hash", None)
+    return d
+
+
+@api.get("/admin/resources/{kind}")
+async def list_resources(kind: str, q: str = "", user: dict = Depends(require_role("admin"))):
+    coll = _require_kind(kind)
+    query = {}
+    if q:
+        fields = RESOURCE_SEARCH_FIELDS.get(kind, ["name"])
+        regex = {"$regex": q, "$options": "i"}
+        query = {"$or": [{f: regex} for f in fields]}
+    items = await db[coll].find(query, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    for it in items:
+        it.pop("password_hash", None)
+    return {"items": items, "total": len(items)}
+
+
+@api.post("/admin/resources/{kind}")
+async def create_resource(kind: str, payload: dict, user: dict = Depends(require_role("admin"))):
+    coll = _require_kind(kind)
+    doc = dict(payload or {})
+    doc.pop("_id", None); doc.pop("id", None)
+    doc["id"] = f"{kind[:3]}_{uuid.uuid4().hex[:12]}"
+    doc["status"] = doc.get("status") or "active"
+    now = datetime.now(timezone.utc).isoformat()
+    doc["created_at"] = now
+    doc["updated_at"] = now
+
+    # Special handling: school-admins + students also create a user for login
+    if kind == "school-admins":
+        email = (doc.get("email") or "").lower().strip()
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required")
+        password = doc.get("password") or "Demo@123"
+        if await db.users.find_one({"email": email}):
+            # reuse existing user
+            pass
+        else:
+            await db.users.insert_one({
+                "user_id": f"user_{uuid.uuid4().hex[:12]}",
+                "email": email, "name": doc.get("name") or email,
+                "password_hash": hash_password(password),
+                "role": "admin", "auth_provider": "password",
+                "email_verified": True, "avatar_url": doc.get("avatar_url"),
+                "created_at": now,
+            })
+        doc.pop("password", None)
+        doc["email"] = email
+    elif kind == "students":
+        email = (doc.get("email") or "").lower().strip()
+        if email and not await db.users.find_one({"email": email}):
+            await db.users.insert_one({
+                "user_id": f"user_{uuid.uuid4().hex[:12]}",
+                "email": email, "name": doc.get("name") or email,
+                "password_hash": hash_password("Demo@123"),
+                "role": "student", "auth_provider": "password",
+                "email_verified": True, "avatar_url": None,
+                "created_at": now,
+            })
+        if email:
+            doc["email"] = email
+
+    await db[coll].insert_one(doc)
+    await _log_activity(kind, "create", doc.get("name") or doc.get("id"), user)
+    return {"ok": True, "item": _clean(doc)}
+
+
+@api.put("/admin/resources/{kind}/{rid}")
+async def update_resource(kind: str, rid: str, payload: dict, user: dict = Depends(require_role("admin"))):
+    coll = _require_kind(kind)
+    update = dict(payload or {})
+    update.pop("_id", None); update.pop("id", None); update.pop("created_at", None)
+    update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    # Don't persist raw password in resource doc
+    if kind == "school-admins" and update.get("password"):
+        # optionally update user's password
+        email = (update.get("email") or "").lower().strip()
+        if email:
+            await db.users.update_one(
+                {"email": email},
+                {"$set": {"password_hash": hash_password(update["password"])}},
+            )
+        update.pop("password", None)
+    result = await db[coll].update_one({"id": rid}, {"$set": update})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    fresh = await db[coll].find_one({"id": rid}, {"_id": 0})
+    await _log_activity(kind, "update", (fresh or {}).get("name") or rid, user)
+    return {"ok": True, "item": _clean(fresh or {})}
+
+
+@api.delete("/admin/resources/{kind}/{rid}")
+async def delete_resource(kind: str, rid: str, user: dict = Depends(require_role("admin"))):
+    coll = _require_kind(kind)
+    doc = await db[coll].find_one({"id": rid}, {"_id": 0})
+    result = await db[coll].delete_one({"id": rid})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    await _log_activity(kind, "delete", (doc or {}).get("name") or rid, user)
+    return {"ok": True}
+
+
+@api.patch("/admin/resources/{kind}/{rid}/status")
+async def toggle_status(kind: str, rid: str, payload: dict, user: dict = Depends(require_role("admin"))):
+    coll = _require_kind(kind)
+    new_status = (payload or {}).get("status") or "active"
+    if new_status not in ("active", "disabled"):
+        raise HTTPException(status_code=400, detail="status must be 'active' or 'disabled'")
+    result = await db[coll].update_one(
+        {"id": rid},
+        {"$set": {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    fresh = await db[coll].find_one({"id": rid}, {"_id": 0})
+    await _log_activity(kind, f"status:{new_status}", (fresh or {}).get("name") or rid, user)
+    return {"ok": True, "item": _clean(fresh or {})}
+
+
+@api.post("/admin/resources/{kind}/bulk")
+async def bulk_create(kind: str, payload: dict, user: dict = Depends(require_role("admin"))):
+    coll = _require_kind(kind)
+    rows = (payload or {}).get("items") or []
+    if not isinstance(rows, list) or not rows:
+        raise HTTPException(status_code=400, detail="items array is required")
+    now = datetime.now(timezone.utc).isoformat()
+    inserted = []
+    for raw in rows[:2000]:
+        if not isinstance(raw, dict):
+            continue
+        d = dict(raw)
+        d.pop("_id", None); d.pop("id", None)
+        d["id"] = f"{kind[:3]}_{uuid.uuid4().hex[:12]}"
+        d["status"] = d.get("status") or "active"
+        d["created_at"] = now
+        d["updated_at"] = now
+        if kind == "school-admins" and d.get("email"):
+            email = d["email"].lower().strip()
+            if not await db.users.find_one({"email": email}):
+                await db.users.insert_one({
+                    "user_id": f"user_{uuid.uuid4().hex[:12]}",
+                    "email": email, "name": d.get("name") or email,
+                    "password_hash": hash_password(d.get("password") or "Demo@123"),
+                    "role": "admin", "auth_provider": "password",
+                    "email_verified": True, "avatar_url": None, "created_at": now,
+                })
+            d.pop("password", None); d["email"] = email
+        elif kind == "students" and d.get("email"):
+            email = d["email"].lower().strip()
+            if not await db.users.find_one({"email": email}):
+                await db.users.insert_one({
+                    "user_id": f"user_{uuid.uuid4().hex[:12]}",
+                    "email": email, "name": d.get("name") or email,
+                    "password_hash": hash_password("Demo@123"),
+                    "role": "student", "auth_provider": "password",
+                    "email_verified": True, "avatar_url": None, "created_at": now,
+                })
+            d["email"] = email
+        inserted.append(d)
+    if inserted:
+        await db[coll].insert_many(inserted)
+        await _log_activity(kind, "bulk", f"{len(inserted)} rows", user)
+    return {"ok": True, "inserted": len(inserted)}
+
+
+@api.get("/admin/dashboard")
+async def admin_dashboard(user: dict = Depends(require_role("admin"))):
+    async def count(c): return await db[c].count_documents({})
+    totals = {
+        "schools": await count("schools"),
+        "school_admins": await count("school_admins"),
+        "students": await count("students_admin"),
+        "classes": await count("classes"),
+        "courses": await count("courses_admin"),
+        "subjects": await count("subjects"),
+        "chapters": await count("chapters"),
+        "resources": (await count("classes")) + (await count("courses_admin")) + (await count("subjects")) + (await count("chapters")),
+        "products": await count("products"),
+        "orders": await count("orders"),
+        "payments": await count("payments"),
+    }
+    activities = await db.recent_activities.find({}, {"_id": 0}).sort("created_at", -1).to_list(12)
+    return {"totals": totals, "recent_activities": activities}
+
+
 app.include_router(api)
 
 
@@ -623,6 +857,15 @@ async def _seed():
         pass
     try:
         await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
+    except Exception:
+        pass
+    for coll in ["schools", "classes", "courses_admin", "subjects", "chapters", "school_admins", "students_admin"]:
+        try:
+            await db[coll].create_index("id", unique=True)
+        except Exception:
+            pass
+    try:
+        await db.recent_activities.create_index([("created_at", -1)])
     except Exception:
         pass
 

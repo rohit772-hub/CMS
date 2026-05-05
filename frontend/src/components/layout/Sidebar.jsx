@@ -13,18 +13,23 @@ const ADMIN_NAV = [
   { type: "item", label: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
   { type: "group", label: "Manage Resources", icon: BookOpen, items: [
     { label: "Classes", to: "/admin/classes" },
-    { label: "Quiz", to: "/admin/quiz" },
     { label: "Courses", to: "/admin/courses" },
+    { label: "Subjects", to: "/admin/subjects" },
+    { label: "Chapters", to: "/admin/chapters" },
+    { label: "Quiz", to: "/admin/quiz" },
   ]},
+  { type: "item", label: "Schools", to: "/admin/schools", icon: ShieldCheck },
+  { type: "item", label: "School Admins", to: "/admin/school-admins", icon: Users },
+  { type: "item", label: "Students", to: "/admin/students", icon: GraduationCap },
   { type: "group", label: "Store", icon: ShoppingBag, items: [
     { label: "Plans / Subscription", to: "/admin/plans" },
     { label: "Products", to: "/admin/products" },
     { label: "Payments", to: "/admin/payments" },
     { label: "Orders", to: "/admin/orders" },
   ]},
-  { type: "group", label: "Users", icon: Users, items: [
+  { type: "group", label: "Users (Platform)", icon: Users, items: [
     { label: "Instructors", to: "/admin/users?tab=instructors" },
-    { label: "Students", to: "/admin/users?tab=students" },
+    { label: "Students (Platform)", to: "/admin/users?tab=students" },
     { label: "Parents", to: "/admin/users?tab=parents" },
   ]},
   { type: "group", label: "Analytics", icon: BarChart3, items: [
@@ -40,10 +45,10 @@ const ADMIN_NAV = [
   { type: "group", label: "Settings", icon: Settings, items: [
     { label: "General", to: "/admin/settings" },
     { label: "Payment Gateway", to: "/admin/settings#payment" },
-    { label: "Branding", to: "/admin/settings?tab=branding" },
-    { label: "Google Login", to: "/admin/settings?tab=google" },
-    { label: "SMTP", to: "/admin/settings?tab=smtp" },
-    { label: "Security", to: "/admin/settings?tab=security" },
+    { label: "Theme", to: "/admin/settings?tab=theme" },
+    { label: "Notifications", to: "/admin/settings?tab=notifications" },
+    { label: "Platform", to: "/admin/settings?tab=platform" },
+    { label: "System Config", to: "/admin/settings?tab=system" },
   ]},
   { type: "group", label: "Support", icon: LifeBuoy, items: [
     { label: "Help Center", to: "/admin/support?tab=help" },

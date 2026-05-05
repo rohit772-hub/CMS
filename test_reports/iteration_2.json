@@ -1,0 +1,60 @@
+{
+  "summary": "End-to-end testing of the new Admin Console for CMS Edu AI: dashboard (11 KPIs + recent activities + quick actions), generic resource CRUD for schools/classes/courses/subjects/chapters/school-admins/students (search, bulk, edit/disable/delete, status toggle, RBAC), 6-tab Settings page, and sidebar nav. Backend pytest 18/18 passing. Frontend Playwright flows all pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Sidebar", "issues": ["The sidebar still shows a 'Quiz' item under Manage Resources subgroup that has no corresponding admin route — clicking it likely 404s. Either implement a Quiz manager or hide the link until ready."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admin_resources.py",
+    "/app/backend/tests/test_auth_lms.py",
+    "/app/test_reports/pytest/admin_resources.xml"
+  ],
+  "passed_flows": [
+    "POST/GET/PUT/PATCH(status)/DELETE on all 5 generic kinds (schools, classes, courses, subjects, chapters) round-trip correctly with auto-generated id, default active status, updated_at",
+    "Admin dashboard returns totals object with all 11 keys (schools, school_admins, students, classes, courses, subjects, chapters, resources, products, orders, payments) + recent_activities array",
+    "Search /api/admin/resources/classes?q=... returns matching items via case-insensitive regex across configured fields",
+    "Bulk POST /api/admin/resources/classes/bulk inserts N rows; empty items returns 400",
+    "Creating a school-admin auto-creates a /api/auth login user with role='admin'; raw password is stripped from the resource doc",
+    "Creating a student auto-creates a login user with role='student' and default password Demo@123",
+    "Recent activities collection is appended on create/update/delete and surfaces in /admin/dashboard",
+    "Student token is 403'd on every /api/admin/resources/* and on /api/admin/dashboard; unauth requests return 401",
+    "/admin/dashboard UI: 11 kpi-* cards, 8 quick-action-* cards, recent-activities list rendered",
+    "/admin/classes UI: full CRUD verified end-to-end — Add modal saves a class, search filters in real-time (debounced), Edit modal pre-fills and persists changes, Disable button toggles status, Delete shows AlertDialog and removes the row after confirm",
+    "/admin/schools UI: form contains logo (image), name, code, email, phone, principal_name, multi-select class_names + course_names, address textarea; create+search+delete works; status badge shows; schools-view-{id} button is rendered",
+    "/admin/courses, /admin/subjects, /admin/chapters, /admin/school-admins, /admin/students forms render all required fields per spec",
+    "/admin/settings: 6 tabs (general/payment/theme/notifications/platform/system) — clicking each renders a unique card; notification toggles render and respond",
+    "Sidebar exposes Schools / School Admins / Students as top-level items (per spec)"
+  ],
+  "action_items": [
+    "Hide or implement the 'Quiz' submenu link under Manage Resources — currently dangling in the sidebar nav.",
+    "(Carry-over from iteration 1) Brute-force lockout still keys on email only — confirmed working but tighten by adding X-Forwarded-For aware IP keying for additional protection.",
+    "(Carry-over) /api/auth/forgot-password still returns dev_token in body — gate behind ENV flag before production."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now ~900 lines — split admin resource CRUD into a separate router/module (e.g. backend/admin_resources.py) per the >700 LOC rule.",
+    "RESOURCE_KINDS uses different physical collection names (courses_admin, students_admin) than singular kind (courses, students). Document this mapping or rename collections to avoid confusion when querying Mongo directly.",
+    "Generic POST /admin/resources/{kind} accepts an arbitrary dict — there is no per-kind Pydantic validation. Names, emails, phone numbers, image data URIs are not validated. Consider per-kind schemas to prevent malformed/oversized docs (especially base64 images) and to enforce uniqueness (e.g. school code).",
+    "Schools store class_names / course_names as JOINS of denormalized strings (multi-select stores names not ids). If a class is renamed or deleted, references stay stale — consider storing ids and resolving names in the response, OR document the trade-off.",
+    "Bulk endpoint silently caps at 2000 rows and skips non-dict entries without surfacing per-row errors — return a structured {inserted, skipped, errors} payload so the UI can show import diagnostics.",
+    "Image fields in FieldRenderer expose testids field-{key}-file / field-{key}-button but no wrapper field-{key} testid — testing agents will probe field-{key} first; consider adding a wrapper data-testid for parity with other field types.",
+    "/admin/recent_activities has no max retention — it grows unbounded. Add a TTL index or a periodic prune job.",
+    "Sidebar lists 'Quiz' link under Manage Resources but there is no /admin/quiz route — dead link."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_admin_resources.py (new — 18 pytest tests covering dashboard, CRUD across 5 kinds, search, bulk, school-admin/student user auto-create, RBAC, activity log)"
+  ],
+  "success_rate": {"backend": "100% (18/18 new admin tests + 25/25 carry-over auth tests)", "frontend": "~98% (all critical admin flows pass; only nit is a stale Quiz nav link)"},
+  "test_credentials": "admin@cmsedu.ai / Demo@123 (verified). student@cmsedu.ai / Demo@123 (verified, used for 403 RBAC checks).",
+  "seed_data_creation": "Pytest creates throwaway resources prefixed TEST_<kind>_* and cleans them up by deletion. Two extra login users are created and left behind per run (test_schadmin_*, test_student_*); recommend periodic cleanup but isolated by random hex.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run admin tests with: cd /app && export $(grep -v '^#' frontend/.env | xargs) && python -m pytest backend/tests/test_admin_resources.py -v. RESOURCE_KINDS keys to use in URLs: schools, classes, courses, subjects, chapters, school-admins, students. ResourceManager testids (kind = URL kind): {kind}-page, {kind}-add-button, {kind}-search-input, {kind}-excel, {kind}-table, {kind}-row-{id}, {kind}-edit-{id}, {kind}-disable-{id}, {kind}-delete-{id}, {kind}-delete-confirm, {kind}-save-button, {kind}-cancel-button. Form fields: data-testid='field-{key}'. For type=image fields the actual file input testid is field-{key}-file and trigger button is field-{key}-button (no wrapper field-{key} — use those instead). Settings tabs: settings-tab-{general|payment|theme|notifications|platform|system}; matching cards: {key}-settings-card. Schools view dialog button: schools-view-{id}.",
+  "rca of the issue": "N/A — no functional regressions found in this iteration."
+}

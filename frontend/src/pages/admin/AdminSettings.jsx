@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Save, Globe, Mail, Phone, MapPin, KeyRound, Lock, Eye, EyeOff, CreditCard, Settings as SettingsIcon } from "lucide-react";
+import { Loader2, Save, Globe, Mail, Phone, MapPin, KeyRound, Lock, Eye, EyeOff, CreditCard, Settings as SettingsIcon, Palette, Bell, Server, Database } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
+import { Switch } from "../../components/ui/switch";
 import { GlassCard, PageHeader } from "../../components/dashboard/Common";
 import api, { formatApiError } from "../../lib/api";
 
@@ -67,8 +68,12 @@ export default function AdminSettings() {
 
       <div className="flex gap-2 mb-6 flex-wrap">
         {[
-          { key: "general", label: "General settings", icon: SettingsIcon, testid: "settings-tab-general" },
-          { key: "payment", label: "Payment Gateway",  icon: CreditCard,   testid: "settings-tab-payment" },
+          { key: "general",       label: "General",        icon: SettingsIcon, testid: "settings-tab-general" },
+          { key: "payment",       label: "Payment Gateway",icon: CreditCard,   testid: "settings-tab-payment" },
+          { key: "theme",         label: "Theme",          icon: Palette,      testid: "settings-tab-theme" },
+          { key: "notifications", label: "Notifications",  icon: Bell,         testid: "settings-tab-notifications" },
+          { key: "platform",      label: "Platform",       icon: Server,       testid: "settings-tab-platform" },
+          { key: "system",        label: "System Config",  icon: Database,     testid: "settings-tab-system" },
         ].map(({ key, label, icon: Icon, testid }) => (
           <button
             key={key} onClick={() => setTab(key)}
@@ -190,6 +195,112 @@ export default function AdminSettings() {
                 </Button>
               </div>
             </form>
+          </GlassCard>
+        </motion.div>
+      )}
+
+      {tab === "theme" && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <GlassCard testid="theme-settings-card">
+            <div className="mb-5">
+              <h3 className="font-heading text-xl font-medium tracking-tight">Theme</h3>
+              <p className="text-sm text-[#A0ABC0] mt-1">Choose how CMS Edu AI looks across your admin screens.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                { id: "dark", label: "Dark (default)", bg: "from-[#060814] via-[#0B1120] to-[#131B2F]" },
+                { id: "midnight", label: "Midnight Blue", bg: "from-[#02040a] via-[#061f3c] to-[#0a2a4d]" },
+                { id: "aurora", label: "Aurora", bg: "from-[#05081a] via-[#0b1c3a] to-[#1a0b3a]" },
+              ].map((t) => (
+                <button key={t.id} onClick={() => toast.success(`Theme set to ${t.label}`)} className="rounded-xl border border-white/10 hover:border-cyan-400/40 transition text-left" data-testid={`theme-option-${t.id}`}>
+                  <div className={`aspect-video rounded-t-xl bg-gradient-to-br ${t.bg}`} />
+                  <div className="p-3 flex items-center justify-between">
+                    <span className="text-sm text-white">{t.label}</span>
+                    <span className="text-[10px] uppercase tracking-widest text-cyan-300">Preview</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </GlassCard>
+        </motion.div>
+      )}
+
+      {tab === "notifications" && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <GlassCard testid="notifications-settings-card">
+            <div className="mb-5">
+              <h3 className="font-heading text-xl font-medium tracking-tight">Notifications</h3>
+              <p className="text-sm text-[#A0ABC0] mt-1">Choose which events trigger a notification for your admins.</p>
+            </div>
+            <ul className="divide-y divide-white/5">
+              {[
+                { id: "new_enrollment", label: "New enrollment", hint: "Ping when a new student signs up" },
+                { id: "new_school",     label: "New school added", hint: "Notify when a school is onboarded" },
+                { id: "payment_received",label: "Payment received", hint: "Confirm every successful Razorpay payment" },
+                { id: "failed_login",   label: "Failed login alert",hint: "Notify when an account is locked out" },
+              ].map((n) => (
+                <li key={n.id} className="py-3 flex items-center gap-3" data-testid={`notif-${n.id}`}>
+                  <div className="flex-1">
+                    <p className="text-sm text-white">{n.label}</p>
+                    <p className="text-xs text-[#A0ABC0]">{n.hint}</p>
+                  </div>
+                  <Switch defaultChecked onCheckedChange={(v) => toast.success(`${n.label} ${v ? "on" : "off"}`)} data-testid={`notif-${n.id}-toggle`} />
+                </li>
+              ))}
+            </ul>
+          </GlassCard>
+        </motion.div>
+      )}
+
+      {tab === "platform" && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <GlassCard testid="platform-settings-card">
+            <div className="mb-5">
+              <h3 className="font-heading text-xl font-medium tracking-tight">Platform</h3>
+              <p className="text-sm text-[#A0ABC0] mt-1">Toggle features available across CMS Edu AI.</p>
+            </div>
+            <ul className="divide-y divide-white/5">
+              {[
+                { id: "google_login", label: "Google Login", hint: "Allow Continue with Google" },
+                { id: "allow_register", label: "Open registration", hint: "Let new accounts sign up from /register" },
+                { id: "gamification", label: "Gamification", hint: "Enable XP, streaks and badges on student panel" },
+                { id: "live_classes", label: "Live classes", hint: "Allow instructors to host Zoom / Meet sessions" },
+              ].map((n) => (
+                <li key={n.id} className="py-3 flex items-center gap-3" data-testid={`platform-${n.id}`}>
+                  <div className="flex-1">
+                    <p className="text-sm text-white">{n.label}</p>
+                    <p className="text-xs text-[#A0ABC0]">{n.hint}</p>
+                  </div>
+                  <Switch defaultChecked onCheckedChange={(v) => toast.success(`${n.label} ${v ? "enabled" : "disabled"}`)} data-testid={`platform-${n.id}-toggle`} />
+                </li>
+              ))}
+            </ul>
+          </GlassCard>
+        </motion.div>
+      )}
+
+      {tab === "system" && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <GlassCard testid="system-settings-card">
+            <div className="mb-5">
+              <h3 className="font-heading text-xl font-medium tracking-tight">System configuration</h3>
+              <p className="text-sm text-[#A0ABC0] mt-1">Runtime information for engineers and support.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              {[
+                ["App", "CMS Edu AI"],
+                ["Environment", "Preview"],
+                ["Backend API prefix", "/api"],
+                ["Database", "MongoDB (cms_edu_ai)"],
+                ["Auth", "JWT (Bearer) + Emergent Google OAuth"],
+                ["Frontend version", "2026.05"],
+              ].map(([k, v]) => (
+                <div key={k} className="flex items-center justify-between rounded-xl border border-white/5 bg-white/3 px-4 py-3">
+                  <span className="text-[#A0ABC0]">{k}</span>
+                  <span className="font-mono text-xs text-cyan-200">{v}</span>
+                </div>
+              ))}
+            </div>
           </GlassCard>
         </motion.div>
       )}
