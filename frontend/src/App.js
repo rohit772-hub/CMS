@@ -33,6 +33,9 @@ import ManageStudents from "@/pages/admin/ManageStudents";
 
 import InstructorDashboard from "@/pages/instructor/InstructorDashboard";
 import InstructorCourses from "@/pages/instructor/InstructorCourses";
+import InstructorStudents from "@/pages/instructor/InstructorStudents";
+import { InstructorClasses, InstructorCoursesView, InstructorSubjects, InstructorChapters } from "@/pages/instructor/InstructorViewOnly";
+import { InstructorQuizzes, InstructorQuizResults, InstructorResults } from "@/pages/instructor/InstructorAssessments";
 
 import StudentDashboard from "@/pages/student/StudentDashboard";
 import StudentCourses from "@/pages/student/StudentCourses";
@@ -95,8 +98,15 @@ function AppRouter() {
         <Route index element={<Navigate to="/instructor/dashboard" replace />} />
         <Route path="dashboard" element={<InstructorDashboard />} />
         <Route path="profile" element={<AdminProfile />} />
-        <Route path="courses" element={<InstructorCourses />} />
-        <Route path="students" element={<PlaceholderPage eyebrow="Classroom" title="My students" subtitle="Track progress, attendance and engagement." />} />
+        <Route path="students" element={<InstructorStudents />} />
+        <Route path="classes" element={<InstructorClasses />} />
+        <Route path="courses" element={<InstructorCoursesView />} />
+        <Route path="courses/legacy" element={<InstructorCourses />} />
+        <Route path="subjects" element={<InstructorSubjects />} />
+        <Route path="chapters" element={<InstructorChapters />} />
+        <Route path="quizzes" element={<InstructorQuizzes />} />
+        <Route path="quiz-results" element={<InstructorQuizResults />} />
+        <Route path="results" element={<InstructorResults />} />
         <Route path="assignments" element={<PlaceholderPage eyebrow="Grading" title="Assignments" subtitle="Create, grade and give feedback." />} />
         <Route path="live" element={<PlaceholderPage eyebrow="Live" title="Live classes" subtitle="Host and schedule live sessions." />} />
         <Route path="analytics" element={<PlaceholderPage eyebrow="Insight" title="Analytics" subtitle="Performance trends across your courses." />} />
@@ -137,3 +147,4 @@ export default function App() {
     </div>
   );
 }
+

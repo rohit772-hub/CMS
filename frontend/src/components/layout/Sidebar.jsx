@@ -59,12 +59,16 @@ const ADMIN_NAV = [
 
 const INSTRUCTOR_NAV = [
   { type: "item", label: "Dashboard", to: "/instructor/dashboard", icon: LayoutDashboard },
-  { type: "item", label: "My Courses", to: "/instructor/courses", icon: BookOpen },
   { type: "item", label: "Students", to: "/instructor/students", icon: Users },
-  { type: "item", label: "Assignments", to: "/instructor/assignments", icon: ScrollText },
-  { type: "item", label: "Live Classes", to: "/instructor/live", icon: Calendar },
-  { type: "item", label: "Analytics", to: "/instructor/analytics", icon: BarChart3 },
-  { type: "item", label: "Announcements", to: "/instructor/announcements", icon: Megaphone },
+  { type: "group", label: "Manage Resources", icon: BookOpen, items: [
+    { label: "Classes", to: "/instructor/classes" },
+    { label: "Courses", to: "/instructor/courses" },
+    { label: "Subjects", to: "/instructor/subjects" },
+    { label: "Chapters / Lessons", to: "/instructor/chapters" },
+  ]},
+  { type: "item", label: "Quiz", to: "/instructor/quizzes", icon: ScrollText },
+  { type: "item", label: "Quiz Result", to: "/instructor/quiz-results", icon: FileBarChart },
+  { type: "item", label: "Result", to: "/instructor/results", icon: Trophy },
   { type: "item", label: "Settings", to: "/instructor/settings", icon: Settings },
 ];
 

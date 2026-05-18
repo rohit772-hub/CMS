@@ -622,18 +622,44 @@ RESOURCE_KINDS = {
     "chapters": "chapters",
     "school-admins": "school_admins",
     "students": "students_admin",
+    "quizzes": "quizzes",
+    "quiz-results": "quiz_results",
+    "results": "results",
 }
 
 # Fields to search across (text match)
 RESOURCE_SEARCH_FIELDS = {
     "schools": ["name", "email", "phone", "principal_name", "code"],
-    "classes": ["name"],
-    "courses": ["name", "class_names"],
-    "subjects": ["name", "class_names", "course_names"],
+    "classes": ["name", "division", "assigned_instructor"],
+    "courses": ["name", "class_names", "class_name", "subject_name"],
+    "subjects": ["name", "class_names", "course_names", "class_name", "course_name"],
     "chapters": ["name", "class_name", "course_name", "subject_name"],
     "school-admins": ["name", "email", "mobile", "school_name"],
-    "students": ["name", "email", "phone", "parent_name", "school_name", "division"],
+    "students": ["name", "email", "phone", "parent_name", "school_name", "division", "student_id", "class_name"],
+    "quizzes": ["title", "quiz_id", "class_name", "subject_name"],
+    "quiz-results": ["student_name", "student_id", "quiz_name", "subject_name", "class_name", "division"],
+    "results": ["student_name", "student_id", "subject_name", "class_name", "division", "grade"],
 }
+
+
+KIND_PERMS = {
+    "schools":       {"read": {"admin"}, "write": {"admin"}},
+    "school-admins": {"read": {"admin"}, "write": {"admin"}},
+    "classes":       {"read": {"admin", "instructor"}, "write": {"admin"}},
+    "courses":       {"read": {"admin", "instructor"}, "write": {"admin"}},
+    "subjects":      {"read": {"admin", "instructor"}, "write": {"admin"}},
+    "chapters":      {"read": {"admin", "instructor"}, "write": {"admin"}},
+    "students":      {"read": {"admin", "instructor"}, "write": {"admin", "instructor"}},
+    "quizzes":       {"read": {"admin", "instructor"}, "write": {"admin"}},
+    "quiz-results":  {"read": {"admin", "instructor"}, "write": {"admin", "instructor"}},
+    "results":       {"read": {"admin", "instructor"}, "write": {"admin", "instructor"}},
+}
+
+
+def _can(kind: str, action: str, user: dict) -> bool:
+    perms = KIND_PERMS.get(kind, {"read": {"admin"}, "write": {"admin"}})
+    roles = perms.get(action, set())
+    return user.get("role") in roles
 
 
 def _activity_doc(kind: str, action: str, label: str, by_user: dict):
@@ -846,6 +872,93 @@ async def admin_dashboard(user: dict = Depends(require_role("admin"))):
     return {"totals": totals, "recent_activities": activities}
 
 
+# ---------- Shared resource router (admin + instructor with per-kind perms) ----------
+@api.get("/resources/{kind}")
+async def list_shared(kind: str, q: str = "", user: dict = Depends(get_current_user)):
+    coll = _require_kind(kind)
+    if not _can(kind, "read", user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    query = {}
+    if q:
+        fields = RESOURCE_SEARCH_FIELDS.get(kind, ["name"])
+        regex = {"$regex": q, "$options": "i"}
+        query = {"$or": [{f: regex} for f in fields]}
+    items = await db[coll].find(query, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    for it in items:
+        it.pop("password_hash", None)
+    return {"items": items, "total": len(items)}
+
+
+@api.post("/resources/{kind}")
+async def create_shared(kind: str, payload: dict, user: dict = Depends(get_current_user)):
+    if not _can(kind, "write", user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    body = dict(payload or {})
+    body["added_by_role"] = user.get("role")
+    body["added_by_id"] = user.get("user_id")
+    return await create_resource(kind, body, user)  # type: ignore[arg-type]
+
+
+@api.put("/resources/{kind}/{rid}")
+async def update_shared(kind: str, rid: str, payload: dict, user: dict = Depends(get_current_user)):
+    if not _can(kind, "write", user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return await update_resource(kind, rid, payload, user)  # type: ignore[arg-type]
+
+
+@api.delete("/resources/{kind}/{rid}")
+async def delete_shared(kind: str, rid: str, user: dict = Depends(get_current_user)):
+    if not _can(kind, "write", user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return await delete_resource(kind, rid, user)  # type: ignore[arg-type]
+
+
+@api.patch("/resources/{kind}/{rid}/status")
+async def toggle_shared(kind: str, rid: str, payload: dict, user: dict = Depends(get_current_user)):
+    if not _can(kind, "write", user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return await toggle_status(kind, rid, payload, user)  # type: ignore[arg-type]
+
+
+@api.post("/resources/{kind}/bulk")
+async def bulk_shared(kind: str, payload: dict, user: dict = Depends(get_current_user)):
+    if not _can(kind, "write", user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return await bulk_create(kind, payload, user)  # type: ignore[arg-type]
+
+
+@api.post("/resources/{kind}/bulk-delete")
+async def bulk_delete_shared(kind: str, payload: dict, user: dict = Depends(get_current_user)):
+    if not _can(kind, "write", user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    coll = _require_kind(kind)
+    ids = (payload or {}).get("ids") or []
+    if not isinstance(ids, list) or not ids:
+        raise HTTPException(status_code=400, detail="ids array is required")
+    res = await db[coll].delete_many({"id": {"$in": ids}})
+    await _log_activity(kind, "bulk-delete", f"{res.deleted_count} rows", user)
+    return {"ok": True, "deleted": res.deleted_count}
+
+
+@api.get("/instructor/dashboard")
+async def instructor_dashboard(user: dict = Depends(require_role("instructor", "admin"))):
+    async def count(c): return await db[c].count_documents({})
+    totals = {
+        "classes": await count("classes"),
+        "students": await count("students_admin"),
+        "instructors": await db.users.count_documents({"role": "instructor"}),
+        "subjects": await count("subjects"),
+        "courses": await count("courses_admin"),
+        "quizzes": await count("quizzes"),
+        "quiz_attempts": await count("quiz_results"),
+    }
+    activities = await db.recent_activities.find(
+        {"kind": {"$in": ["students", "quiz-results", "quizzes", "results"]}}, {"_id": 0}
+    ).sort("created_at", -1).to_list(10)
+    latest_results = await db.quiz_results.find({}, {"_id": 0}).sort("created_at", -1).to_list(8)
+    return {"totals": totals, "recent_activities": activities, "latest_results": latest_results}
+
+
 app.include_router(api)
 
 
@@ -859,11 +972,39 @@ async def _seed():
         await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
     except Exception:
         pass
-    for coll in ["schools", "classes", "courses_admin", "subjects", "chapters", "school_admins", "students_admin"]:
+    for coll in ["schools", "classes", "courses_admin", "subjects", "chapters", "school_admins", "students_admin", "quizzes", "quiz_results", "results"]:
         try:
             await db[coll].create_index("id", unique=True)
         except Exception:
             pass
+    # Seed sample quizzes / results once (idempotent)
+    try:
+        if await db.quizzes.count_documents({}) == 0:
+            now = datetime.now(timezone.utc).isoformat()
+            samples = [
+                {"id": "qz_001", "quiz_id": "QZ-001", "title": "Algebra Basics", "class_name": "Class 9",  "subject_name": "Math",   "total_questions": 10, "total_marks": 20, "status": "active", "created_at": now, "updated_at": now},
+                {"id": "qz_002", "quiz_id": "QZ-002", "title": "Python Loops",   "class_name": "Class 10", "subject_name": "Python", "total_questions": 12, "total_marks": 24, "status": "active", "created_at": now, "updated_at": now},
+                {"id": "qz_003", "quiz_id": "QZ-003", "title": "HTML Tags",      "class_name": "Class 8",  "subject_name": "HTML",   "total_questions": 8,  "total_marks": 16, "status": "active", "created_at": now, "updated_at": now},
+            ]
+            await db.quizzes.insert_many(samples)
+        if await db.quiz_results.count_documents({}) == 0:
+            now = datetime.now(timezone.utc).isoformat()
+            rows = [
+                {"id": "qr_001", "student_id": "STU-1001", "student_name": "Aarav Patel",  "class_name": "Class 9",  "division": "A", "subject_name": "Math",   "quiz_name": "Algebra Basics", "marks_obtained": 18, "total_marks": 20, "percentage": 90, "result_status": "Pass", "created_at": now},
+                {"id": "qr_002", "student_id": "STU-1002", "student_name": "Meera Shah",   "class_name": "Class 10", "division": "B", "subject_name": "Python", "quiz_name": "Python Loops",   "marks_obtained": 21, "total_marks": 24, "percentage": 88, "result_status": "Pass", "created_at": now},
+                {"id": "qr_003", "student_id": "STU-1003", "student_name": "Karan Verma",  "class_name": "Class 8",  "division": "A", "subject_name": "HTML",   "quiz_name": "HTML Tags",      "marks_obtained": 9,  "total_marks": 16, "percentage": 56, "result_status": "Fail", "created_at": now},
+            ]
+            await db.quiz_results.insert_many(rows)
+        if await db.results.count_documents({}) == 0:
+            now = datetime.now(timezone.utc).isoformat()
+            rows = [
+                {"id": "rs_001", "student_id": "STU-1001", "student_name": "Aarav Patel", "class_name": "Class 9",  "division": "A", "subject_name": "Math",   "marks": 85, "grade": "A",  "percentage": 85, "created_at": now},
+                {"id": "rs_002", "student_id": "STU-1002", "student_name": "Meera Shah",  "class_name": "Class 10", "division": "B", "subject_name": "Python", "marks": 78, "grade": "B+", "percentage": 78, "created_at": now},
+                {"id": "rs_003", "student_id": "STU-1003", "student_name": "Karan Verma", "class_name": "Class 8",  "division": "A", "subject_name": "HTML",   "marks": 56, "grade": "C",  "percentage": 56, "created_at": now},
+            ]
+            await db.results.insert_many(rows)
+    except Exception as e:
+        logger.warning("sample seed failed: %s", e)
     try:
         await db.recent_activities.create_index([("created_at", -1)])
     except Exception:
