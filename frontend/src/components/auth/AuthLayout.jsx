@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
 import ParticleBackground from "./ParticleBackground";
+import Brand from "../Brand";
 
 const ROLE_VISUALS = {
   admin: {
@@ -44,17 +44,8 @@ export default function AuthLayout({ children, role = "default", title, subtitle
         />
         <div className="absolute inset-0 bg-gradient-to-br from-[#060814]/40 via-[#060814]/60 to-[#060814]/95" />
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-3"
-          >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00E5FF] to-[#0055FF] flex items-center justify-center glow-primary">
-              <Sparkles size={20} strokeWidth={1.6} />
-            </div>
-            <div>
-              <p className="font-heading text-xl font-semibold tracking-tight">CMS Edu AI</p>
-              <p className="text-xs text-[#A0ABC0]">Create · Mind · Studio</p>
-            </div>
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+            <Brand />
           </motion.div>
 
           <motion.div

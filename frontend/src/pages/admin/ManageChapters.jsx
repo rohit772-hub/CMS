@@ -22,7 +22,7 @@ export default function ManageChapters() {
         { key: "course_name", label: "Course", type: "select", options: courseOpts, placeholder: "Select course", required: true },
         { key: "subject_name", label: "Subject", type: "select", options: subjectOpts, placeholder: "Select subject", required: true },
         { key: "name", label: "Chapter Name", type: "text", required: true, placeholder: "e.g. Loops & Conditions" },
-        { key: "resource", label: "Chapter Content / Resource", type: "image", accept: "image/*,application/pdf", span: 2 },
+        { key: "resource", label: "Chapter Content / Resource (PDF, PPT, DOC, video, image, zip)", type: "file", accept: ".pdf,.ppt,.pptx,.doc,.docx,.zip,image/*,video/*", span: 2 },
       ]}
       columns={[
         { key: "class_name", label: "Class" },

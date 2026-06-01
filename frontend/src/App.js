@@ -39,6 +39,13 @@ import { InstructorQuizzes, InstructorQuizResults, InstructorResults } from "@/p
 
 import StudentDashboard from "@/pages/student/StudentDashboard";
 import StudentCourses from "@/pages/student/StudentCourses";
+import StudentSiteLayout from "@/components/layout/StudentSiteLayout";
+import StudentHome from "@/pages/student-site/StudentHome";
+import StudentClassroom, { SubjectList, ChapterViewer } from "@/pages/student-site/StudentClassroom";
+import StudentSubscription from "@/pages/student-site/StudentSubscription";
+import StudentShop from "@/pages/student-site/StudentShop";
+import StudentOrders from "@/pages/student-site/StudentOrders";
+import StudentFunHub from "@/pages/student-site/StudentFunHub";
 
 function HomeRedirect() {
   const { user, loading } = useAuth();
@@ -114,20 +121,24 @@ function AppRouter() {
         <Route path="settings" element={<PlaceholderPage eyebrow="You" title="Instructor settings" subtitle="Profile, payouts and notifications." />} />
       </Route>
 
-      {/* Student */}
-      <Route path="/student" element={<ProtectedRoute allow={["student", "admin"]}><DashboardLayout /></ProtectedRoute>}>
+      {/* Student site — new color-rich layout */}
+      <Route path="/student" element={<ProtectedRoute allow={["student", "admin"]}><StudentSiteLayout /></ProtectedRoute>}>
         <Route index element={<Navigate to="/student/dashboard" replace />} />
-        <Route path="dashboard" element={<StudentDashboard />} />
+        <Route path="dashboard" element={<StudentHome />} />
+        <Route path="classroom" element={<StudentClassroom />} />
+        <Route path="classroom/:courseId" element={<SubjectList />} />
+        <Route path="classroom/:courseId/subjects/:subjectId" element={<ChapterViewer />} />
+        <Route path="subscription" element={<StudentSubscription />} />
+        <Route path="shop" element={<StudentShop />} />
+        <Route path="order" element={<StudentOrders />} />
+        <Route path="fun-hub" element={<StudentFunHub />} />
+        <Route path="profile" element={<AdminProfile />} />
+      </Route>
+
+      {/* Legacy student gamified dashboard (kept for compatibility) */}
+      <Route path="/student/legacy" element={<ProtectedRoute allow={["student", "admin"]}><DashboardLayout /></ProtectedRoute>}>
+        <Route index element={<StudentDashboard />} />
         <Route path="courses" element={<StudentCourses />} />
-        <Route path="explore" element={<PlaceholderPage eyebrow="Explore" title="Discover courses" subtitle="New, trending, and recommended." />} />
-        <Route path="assignments" element={<PlaceholderPage eyebrow="Tasks" title="Assignments" subtitle="Due soon, submitted, graded." />} />
-        <Route path="quizzes" element={<PlaceholderPage eyebrow="Practice" title="Quizzes" subtitle="Sharpen skills and climb leaderboards." />} />
-        <Route path="leaderboard" element={<PlaceholderPage eyebrow="Compete" title="Leaderboard" subtitle="See how you rank across the platform." />} />
-        <Route path="achievements" element={<PlaceholderPage eyebrow="Trophy case" title="Achievements" subtitle="Every badge you've earned so far." />} />
-        <Route path="wishlist" element={<PlaceholderPage eyebrow="Saved" title="Wishlist" subtitle="Courses you bookmarked for later." />} />
-        <Route path="messages" element={<PlaceholderPage eyebrow="Inbox" title="Messages" subtitle="Chat with instructors and classmates." />} />
-        <Route path="billing" element={<PlaceholderPage eyebrow="Account" title="Billing" subtitle="Subscription, invoices and payment history." />} />
-        <Route path="settings" element={<PlaceholderPage eyebrow="You" title="Profile settings" subtitle="Personal details, password, connected accounts." />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

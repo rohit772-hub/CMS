@@ -71,7 +71,7 @@ class RegisterReq(BaseModel):
 
 
 class LoginReq(BaseModel):
-    email: EmailStr
+    email: str  # email OR student_id
     password: str
     remember: bool = False
     role: Optional[Role] = None  # optional client-side hint
@@ -246,11 +246,18 @@ async def register(payload: RegisterReq, response: Response):
 
 @api.post("/auth/login")
 async def login(payload: LoginReq, request: Request, response: Response):
-    email = payload.email.lower()
-    identifier = email  # proxy-safe: key lockout by email only
+    raw = payload.email.strip()
+    email = raw.lower()
+    identifier = email
     await _check_lockout(identifier)
 
+    # Try email first
     user = await db.users.find_one({"email": email})
+    # If not found and the raw value isn't an email, try matching a student by student_id
+    if not user and "@" not in raw:
+        stu = await db.students_admin.find_one({"student_id": raw})
+        if stu and stu.get("email"):
+            user = await db.users.find_one({"email": stu["email"].lower()})
     if not user or not user.get("password_hash"):
         await _record_failed(identifier)
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -263,7 +270,7 @@ async def login(payload: LoginReq, request: Request, response: Response):
         raise HTTPException(status_code=403, detail=f"This account is not registered as a {payload.role}.")
 
     await _clear_attempts(identifier)
-    access = create_access_token(user["user_id"], email, user["role"])
+    access = create_access_token(user["user_id"], user["email"], user["role"])
     refresh = create_refresh_token(user["user_id"]) if payload.remember else create_refresh_token(user["user_id"])
     set_auth_cookies(response, access, refresh, remember=payload.remember)
     pub = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0, "password_hash": 0})
@@ -606,6 +613,118 @@ def _sample_courses():
     ]
 
 
+# ---------- Student site (read-only public-ish, requires student/admin auth) ----------
+@api.get("/student/site/courses")
+async def student_site_courses(user: dict = Depends(require_role("student", "admin", "instructor"))):
+    items = await db.courses_admin.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"courses": items}
+
+
+@api.get("/student/site/courses/{course_id}/subjects")
+async def student_site_course_subjects(course_id: str, user: dict = Depends(require_role("student", "admin", "instructor"))):
+    course = await db.courses_admin.find_one({"id": course_id}, {"_id": 0})
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    course_name = course.get("name")
+    subjects = await db.subjects.find(
+        {"$or": [{"course_names": course_name}, {"course_name": course_name}]},
+        {"_id": 0},
+    ).to_list(200)
+    return {"course": course, "subjects": subjects}
+
+
+@api.get("/student/site/subjects/{subject_id}/chapters")
+async def student_site_subject_chapters(subject_id: str, user: dict = Depends(require_role("student", "admin", "instructor"))):
+    subject = await db.subjects.find_one({"id": subject_id}, {"_id": 0})
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    chapters = await db.chapters.find({"subject_name": subject.get("name")}, {"_id": 0}).sort("created_at", 1).to_list(500)
+    return {"subject": subject, "chapters": chapters}
+
+
+@api.get("/student/site/chapters")
+async def student_site_recent_chapters(limit: int = 8, user: dict = Depends(require_role("student", "admin", "instructor"))):
+    chapters = await db.chapters.find({}, {"_id": 0}).sort("created_at", -1).to_list(max(1, min(limit, 50)))
+    return {"chapters": chapters}
+
+
+@api.get("/student/site/products")
+async def student_site_products(user: dict = Depends(require_role("student", "admin", "instructor"))):
+    items = await db.products.find({"status": {"$ne": "disabled"}}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"products": items}
+
+
+@api.get("/student/site/plans")
+async def student_site_plans(user: dict = Depends(require_role("student", "admin", "instructor"))):
+    items = await db.plans.find({}, {"_id": 0}).to_list(20)
+    if not items:
+        items = [
+            {"id": "plan_monthly", "name": "Pro Monthly", "price": 200, "interval": "monthly"},
+            {"id": "plan_yearly",  "name": "Pro Yearly",  "price": 2400, "interval": "yearly"},
+        ]
+    return {"plans": items}
+
+
+@api.get("/student/site/subscription")
+async def student_site_get_subscription(user: dict = Depends(get_current_user)):
+    sub = await db.subscriptions.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    if not sub:
+        return {"active": False}
+    return sub
+
+
+@api.post("/student/site/subscription/subscribe")
+async def student_site_subscribe(payload: dict, user: dict = Depends(get_current_user)):
+    plan = (payload or {}).get("plan", "monthly")
+    days = 365 if plan == "yearly" else 30
+    expires = datetime.now(timezone.utc) + timedelta(days=days)
+    doc = {
+        "user_id": user["user_id"], "plan": plan, "active": True,
+        "price": 2400 if plan == "yearly" else 200,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": expires.isoformat(),
+    }
+    await db.subscriptions.update_one({"user_id": user["user_id"]}, {"$set": doc}, upsert=True)
+    return doc
+
+
+@api.get("/student/site/orders")
+async def student_site_orders(user: dict = Depends(get_current_user)):
+    items = await db.student_orders.find({"user_id": user["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"orders": items}
+
+
+@api.post("/student/site/orders")
+async def student_site_create_order(payload: dict, user: dict = Depends(get_current_user)):
+    body = dict(payload or {})
+    doc = {
+        "id": f"ord_{uuid.uuid4().hex[:12]}",
+        "user_id": user["user_id"],
+        "user_name": user.get("name"),
+        "product_id": body.get("product_id"),
+        "product_name": body.get("product_name") or "Product",
+        "price": body.get("price") or 0,
+        "status": "Pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.student_orders.insert_one(doc)
+    return {"ok": True, "order": _clean(doc)}
+
+
+@api.patch("/student/site/orders/{order_id}/status")
+async def student_site_update_order(order_id: str, payload: dict, user: dict = Depends(get_current_user)):
+    status = (payload or {}).get("status")
+    if status not in ("Pending", "Confirmed", "Shipped", "Delivered", "Cancelled", "Returned"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    q = {"id": order_id}
+    if user.get("role") not in ("admin", "instructor"):
+        q["user_id"] = user["user_id"]
+    res = await db.student_orders.update_one(q, {"$set": {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return {"ok": True}
+
+
 # ---------- Health ----------
 @api.get("/")
 async def root():
@@ -625,6 +744,8 @@ RESOURCE_KINDS = {
     "quizzes": "quizzes",
     "quiz-results": "quiz_results",
     "results": "results",
+    "products": "products",
+    "plans": "plans",
 }
 
 # Fields to search across (text match)
@@ -639,6 +760,8 @@ RESOURCE_SEARCH_FIELDS = {
     "quizzes": ["title", "quiz_id", "class_name", "subject_name"],
     "quiz-results": ["student_name", "student_id", "quiz_name", "subject_name", "class_name", "division"],
     "results": ["student_name", "student_id", "subject_name", "class_name", "division", "grade"],
+    "products": ["name", "description"],
+    "plans": ["name", "title"],
 }
 
 
@@ -653,6 +776,8 @@ KIND_PERMS = {
     "quizzes":       {"read": {"admin", "instructor"}, "write": {"admin"}},
     "quiz-results":  {"read": {"admin", "instructor"}, "write": {"admin", "instructor"}},
     "results":       {"read": {"admin", "instructor"}, "write": {"admin", "instructor"}},
+    "products":      {"read": {"admin", "instructor"}, "write": {"admin"}},
+    "plans":         {"read": {"admin", "instructor"}, "write": {"admin"}},
 }
 
 
@@ -972,7 +1097,7 @@ async def _seed():
         await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
     except Exception:
         pass
-    for coll in ["schools", "classes", "courses_admin", "subjects", "chapters", "school_admins", "students_admin", "quizzes", "quiz_results", "results"]:
+    for coll in ["schools", "classes", "courses_admin", "subjects", "chapters", "school_admins", "students_admin", "quizzes", "quiz_results", "results", "products", "plans"]:
         try:
             await db[coll].create_index("id", unique=True)
         except Exception:
@@ -1005,6 +1130,19 @@ async def _seed():
             await db.results.insert_many(rows)
     except Exception as e:
         logger.warning("sample seed failed: %s", e)
+    # Seed sample products for the Shop
+    try:
+        if await db.products.count_documents({}) == 0:
+            now = datetime.now(timezone.utc).isoformat()
+            kits = [
+                {"id": "prd_001", "name": "Robotics Starter Kit", "description": "Arduino-based starter kit with sensors, motors and step-by-step projects.", "price": 2999, "stock": "in", "status": "active", "image": "https://images.unsplash.com/photo-1601932242523-1f013b8a4f5b?w=800", "created_at": now, "updated_at": now},
+                {"id": "prd_002", "name": "3D Printing Pen", "description": "Draw your imagination in 3D. Safe for ages 10+.", "price": 1499, "stock": "in", "status": "active", "image": "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800", "created_at": now, "updated_at": now},
+                {"id": "prd_003", "name": "Mini Drone", "description": "Beginner-friendly drone with built-in flight tutor.", "price": 3499, "stock": "in", "status": "active", "image": "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=800", "created_at": now, "updated_at": now},
+                {"id": "prd_004", "name": "Electronics Sensor Pack", "description": "20-piece sensor pack for Arduino + Raspberry Pi.", "price": 999, "stock": "in", "status": "active", "image": "https://images.unsplash.com/photo-1593642634443-44adaa06623a?w=800", "created_at": now, "updated_at": now},
+            ]
+            await db.products.insert_many(kits)
+    except Exception as e:
+        logger.warning("product seed failed: %s", e)
     try:
         await db.recent_activities.create_index([("created_at", -1)])
     except Exception:

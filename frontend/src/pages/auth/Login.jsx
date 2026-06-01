@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import AuthLayout from "../../components/auth/AuthLayout";
 import { useAuth } from "../../contexts/AuthContext";
 import { formatApiError } from "../../lib/api";
-import GoogleButton from "../../components/auth/GoogleButton";
 
 const TITLES = {
   admin: { title: "Admin sign-in", subtitle: "Welcome back, captain. Your console awaits." },
@@ -126,17 +125,6 @@ export default function Login() {
           {busy ? <><Loader2 size={18} className="animate-spin mr-2" /> Signing in…</> : "Sign in"}
         </Button>
 
-        <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
-          <div className="relative flex justify-center text-xs uppercase tracking-widest text-[#64748B]"><span className="bg-[#060814] px-3">or continue with</span></div>
-        </div>
-
-        <GoogleButton />
-
-        <p className="text-center text-sm text-[#A0ABC0] pt-3">
-          Don't have an account?{" "}
-          <Link to="/register" className="text-cyan-300 hover:text-cyan-200" data-testid="login-go-register">Create one</Link>
-        </p>
         <p className="text-center text-xs text-[#64748B]">
           Need a different role?{" "}
           <Link to="/login" className="hover:text-cyan-300" data-testid="login-back-selection">← back to role selection</Link>

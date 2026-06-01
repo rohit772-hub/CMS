@@ -1,0 +1,64 @@
+/* Student site palette — teal/red/cream (Create Mind Studio brand) */
+.student-site {
+  --cms-teal-deep: #0d3b3f;
+  --cms-teal: #126b6e;
+  --cms-teal-2: #1c8e8a;
+  --cms-teal-soft: #d9efed;
+  --cms-red: #d23028;
+  --cms-red-deep: #a31f1a;
+  --cms-yellow: #fbd86b;
+  --cms-cream: #fff8e8;
+  --cms-bg: #f5fbfb;
+  --cms-text: #0d3b3f;
+  --cms-muted: #5e7677;
+
+  background: var(--cms-bg);
+  color: var(--cms-text);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  min-height: 100vh;
+}
+.student-site h1, .student-site h2, .student-site h3, .student-site h4 { font-family: 'Outfit', sans-serif; color: var(--cms-teal-deep); }
+
+.cms-card {
+  background: #fff;
+  border-radius: 1.25rem;
+  border: 1px solid #e3eeee;
+  box-shadow: 0 6px 22px rgba(13,59,63,0.06);
+}
+.cms-card-vivid { border-radius: 1.25rem; padding: 1.25rem; color: #fff; }
+.cms-btn-primary {
+  background: var(--cms-red);
+  color: #fff;
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  font-weight: 600;
+  transition: transform .15s ease, background .15s ease;
+}
+.cms-btn-primary:hover { background: var(--cms-red-deep); transform: translateY(-1px); }
+.cms-btn-secondary {
+  background: var(--cms-teal);
+  color: #fff;
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  font-weight: 600;
+  transition: transform .15s ease, background .15s ease;
+}
+.cms-btn-secondary:hover { background: var(--cms-teal-deep); transform: translateY(-1px); }
+.cms-btn-ghost {
+  background: #fff;
+  border: 1px solid #d1e1e0;
+  color: var(--cms-teal-deep);
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.cms-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: 999px;
+  background: var(--cms-teal-soft); color: var(--cms-teal-deep);
+  font-size: 12px; font-weight: 600;
+}
+.cms-chip-red { background: #fde2e1; color: var(--cms-red-deep); }
+.cms-chip-yellow { background: #fff4cc; color: #8a6300; }
+.cms-chip-purple { background: #eee2ff; color: #5b3a9c; }
+.cms-chip-blue { background: #dfeaff; color: #2a4ea8; }

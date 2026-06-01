@@ -8,6 +8,7 @@ import {
   Trophy, Heart, ScrollText, Wallet, Star, Calendar, X,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import Brand from "../Brand";
 
 const ADMIN_NAV = [
   { type: "item", label: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
@@ -196,22 +197,9 @@ export default function Sidebar({ role, collapsed, onToggle, mobileOpen, onMobil
     <TooltipProvider delayDuration={0}>
       <div className="flex flex-col h-full">
         <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} px-4 h-16 border-b border-white/5`}>
-          <Link to={`/${role}/dashboard`} className="flex items-center gap-2" data-testid="sidebar-brand">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#00E5FF] to-[#0055FF] flex items-center justify-center glow-primary">
-              <Sparkles size={18} strokeWidth={1.6} />
-            </div>
-            {!collapsed && (
-              <div>
-                <p className="font-heading text-base font-semibold leading-none">CMS Edu AI</p>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-300 mt-1">{role}</p>
-              </div>
-            )}
+          <Link to={`/${role}/dashboard`} data-testid="sidebar-brand">
+            <Brand iconOnly={collapsed} />
           </Link>
-          {!collapsed && (
-            <button onClick={onToggle} className="hidden lg:flex w-8 h-8 rounded-lg items-center justify-center hover:bg-white/5 text-[#A0ABC0]" data-testid="sidebar-collapse-button" aria-label="Collapse sidebar">
-              <ChevronLeft size={16} />
-            </button>
-          )}
         </div>
         <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           {nav.map((n, i) =>
@@ -220,17 +208,14 @@ export default function Sidebar({ role, collapsed, onToggle, mobileOpen, onMobil
               : <NavGroup key={i} group={n} collapsed={collapsed} />
           )}
         </div>
-        <div className={`px-3 py-3 border-t border-white/5 ${collapsed ? "flex justify-center" : ""}`}>
-          {collapsed ? (
-            <button onClick={onToggle} className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-white/5 text-[#A0ABC0]" data-testid="sidebar-expand-button" aria-label="Expand sidebar">
-              <ChevronRight size={16} />
-            </button>
-          ) : (
-            <div className="glass-soft p-3 text-xs text-[#A0ABC0]">
-              <div className="flex items-center gap-2 text-cyan-300 mb-1"><ShieldCheck size={14} /> AI co-pilot</div>
-              Try asking: <span className="text-white">“Recommend a course”</span>
-            </div>
-          )}
+        <div className="px-3 py-3 border-t border-white/5 flex items-center justify-between gap-2">
+          {!collapsed && <span className="text-[10px] uppercase tracking-[0.2em] text-[#64748B]">{role}</span>}
+          <button onClick={onToggle}
+            className="hidden lg:flex w-8 h-8 rounded-lg items-center justify-center hover:bg-white/5 text-[#A0ABC0] ml-auto"
+            data-testid="sidebar-toggle-button"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
         </div>
       </div>
     </TooltipProvider>

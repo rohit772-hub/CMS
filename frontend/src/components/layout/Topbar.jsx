@@ -1,12 +1,13 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Search, LogOut, User, Settings, Menu, Sun, Moon } from "lucide-react";
+import { LogOut, User, Settings, Menu } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator,
 } from "../ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Input } from "../ui/input";
+import { Search } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -46,14 +47,6 @@ export default function Topbar({ user, onBurger }) {
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <button
-          onClick={() => toast("Notifications panel — coming soon")}
-          className="relative w-9 h-9 rounded-lg flex items-center justify-center hover:bg-white/5 text-[#A0ABC0]"
-          data-testid="topbar-notifications" aria-label="Notifications"
-        >
-          <Bell size={18} />
-          <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-cyan-400" />
-        </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 pl-1.5 pr-3 py-1 rounded-full hover:bg-white/5 transition" data-testid="topbar-profile-trigger">
@@ -71,7 +64,7 @@ export default function Topbar({ user, onBurger }) {
             <DropdownMenuLabel className="text-[#A0ABC0] text-xs">{user?.email}</DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-white/5" />
             <DropdownMenuItem onClick={() => navigate(`/${user.role}/dashboard`)} data-testid="topbar-menu-dashboard">
-              <Sun size={14} className="mr-2" /> Dashboard
+              <User size={14} className="mr-2" /> Dashboard
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/${user.role}/profile`)} data-testid="topbar-menu-profile">
               <User size={14} className="mr-2" /> Profile
