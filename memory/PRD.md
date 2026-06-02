@@ -15,6 +15,13 @@ Enterprise-grade Multi-Role LMS (Admin, **School Admin**, Student) with modern S
 - File upload field type on resource forms.
 - Student site V1: Dashboard, Classroom, Shop, Subscription, Fun Hub.
 
+### Phase 2.5 (shipped 2026-02)
+- **Passwordless Student Login** — `LoginReq.password` now optional; `LoginReq.student_id` added. `/api/auth/login` auto-detects passwordless mode when role=student + no password. New dedicated `POST /api/auth/student-login {student_id}` endpoint. Wrong/missing IDs → `401 "Invalid Student ID. Please contact your school/admin."`. Frontend hides the password field entirely for the student role and sends `{student_id, role}` payload.
+- **School Admin validation** — new `_validate_school_admin()` helper runs at login. Blocks the user if `school_name` is missing, the school doesn't exist in the `schools` collection, or the school is `disabled`. Error message names the offending school.
+- **Student site performance** — new batched `GET /api/student/site/init` returns `{courses, chapters, notifications, user}` via `asyncio.gather` (3 queries in parallel → 1 HTTP round-trip). All student-site routes (`StudentHome`, `StudentClassroom`, `SubjectList`, `ChapterViewer`, `StudentShop`, `StudentSubscription`, `StudentOrders`, `StudentFunHub`) now lazy-loaded via `React.lazy` + `Suspense` with a branded fallback. Dramatically smaller initial JS bundle for the student site.
+- **Logo replaced** — `/app/frontend/public/cms-logo.png` swapped with the new red+teal arrow-in-circle mark. Brand component unchanged. Old logo backed up at `cms-logo.png.bak`.
+- Test suite: `/app/backend/tests/test_phase25_auth.py`. **11/11 backend + 9/9 frontend pass.**
+
 ### Phase 2 (shipped 2026-02)
 - Admin CRUD pages: `ManageProducts.jsx`, `ManageOrders.jsx`, `ManageFunHub.jsx`, `ManageNotifications.jsx` — all backed by `/api/admin/resources/{kind}` with image uploads, filters, search, downloads.
 - Backend: added `RESOURCE_KINDS` entries for `orders`, `fun-hub`, `notifications`; updated `RESOURCE_SEARCH_FIELDS` + `KIND_PERMS`; added `_search_query()` with `re.escape()` so user input like `C++` no longer crashes the regex.
@@ -51,7 +58,7 @@ Enterprise-grade Multi-Role LMS (Admin, **School Admin**, Student) with modern S
 
 ### Phase 4 — Delight (P2)
 - [ ] 3D Robot / animated student-site element (deferred by user)
-- [ ] Logo image replacement (waiting for user upload)
+- [x] Logo image replacement (shipped 2026-02 in Phase 2.5)
 
 ### Tech-debt
 - `/app/backend/server.py` is 1300+ lines — split into routers (auth/resources/admin/instructor/student) on a future pass.
