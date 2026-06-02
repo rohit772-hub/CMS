@@ -10,7 +10,7 @@ import { fmtDate } from "../../lib/resources";
 const KPIS = [
   { key: "classes",       label: "Total Classes",      icon: Layers },
   { key: "students",      label: "Total Students",     icon: Users },
-  { key: "instructors",   label: "Total Instructors",  icon: GraduationCap },
+  { key: "instructors",   label: "Total School Admins",  icon: GraduationCap },
   { key: "subjects",      label: "Total Subjects",     icon: BookText },
   { key: "courses",       label: "Total Courses",      icon: BookOpen },
   { key: "quizzes",       label: "Total Quizzes",      icon: FileQuestion },

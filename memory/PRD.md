@@ -1,73 +1,50 @@
-# CMS Edu AI — Product Requirements Document
+# CMS Edu AI — Product Requirements (Living Doc)
 
 ## Original Problem Statement
-Build an enterprise-grade AI-powered LMS platform named "CMS Edu AI" (Create Mind Studio) with:
-- Multi-role authentication (Admin, Instructor, Student)
-- JWT + Google OAuth sign-in
-- Premium glassmorphism UI with blue gradient accents
-- Split-screen auth, collapsible sidebars, gamified student dashboard, analytics panels
-- Full CRUD for users, courses, subscriptions, store, etc.
-- Real-time notifications, AI chatbot, payments, uploads (deferred to phase 2)
+Enterprise-grade Multi-Role LMS (Admin, **School Admin**, Student) with modern SaaS UI/UX, built on React + FastAPI + MongoDB.
 
-## Architecture
-- **Frontend**: React 19 (CRA) + Tailwind + Shadcn UI + framer-motion + recharts + lucide-react
-- **Backend**: FastAPI + Motor (MongoDB async) + PyJWT + bcrypt + httpx
-- **DB**: MongoDB (`cms_edu_ai` database)
-- **Auth**: JWT access token (12h) + refresh token (7d), Bearer header in preview env (cookie fallback), Emergent-managed Google OAuth via `/auth/v1/env/oauth/session-data`
-- **Design system**: dark "Jewel" archetype, `Outfit` + `Plus Jakarta Sans` fonts, `#060814` base, `#00E5FF → #0055FF` gradient accent, custom glass utilities
+## Roles (as of Feb 2026)
+- **Admin** — platform owner, full control.
+- **School Admin** (DB role token: `instructor`) — school-scoped owner. Sees ONLY their school's data.
+- **Student** — logs in with their **Student ID** (e.g. STU-9999).
 
-## User Personas
-1. **Admin (Avery)** — manages platform; dashboards for revenue, enrollments, users.
-2. **Instructor (Lila)** — creates/edits courses, grades assignments, runs live classes.
-3. **Student (Noah)** — consumes courses, maintains streaks, earns XP/badges.
+## Implemented (cumulative)
+- Generic CRUD `/api/resources/{kind}` for schools, school-admins, classes, courses, subjects, chapters, students, quizzes, products, plans, payments, orders, quiz-results.
+- Bearer-token auth (JWT) via localStorage.
+- Admin login is hidden from `/login` (must use `/login/admin`).
+- File upload field type on resource forms.
+- Student site V1: Dashboard, Classroom, Shop, Subscription, Fun Hub.
 
-## Completed — 2026-05-03
-### Backend
-- `POST /api/auth/register`, `/login`, `/logout`, `/refresh`, `/forgot-password`, `/reset-password`, `/verify-email`, `/google/session`
-- `GET /api/auth/me`
-- Bcrypt password hashing + JWT access/refresh
-- Brute-force lockout (email-keyed, proxy-safe), 5 attempts / 15 min
-- Seeded 3 demo accounts on startup (all password `Demo@123`)
-- Stub LMS endpoints: `/api/admin/stats`, `/api/admin/users`, `/api/instructor/stats`, `/api/instructor/courses`, `/api/student/stats`, `/api/student/courses`, `/api/courses`
-- Role-based access via `require_role("admin", …)` dependency
-- Unique index on `users.email`, TTL index on password reset tokens
+### Phase 1 (shipped 2026-02)
+- Renamed "Instructor" → **"School Admin"** across UI (login pages, sidebar role badge, dashboard eyebrow, KPI labels, Topbar role display).
+- **Strict school-scoped filtering** for instructor users via `_school_scope_filter(kind, user)` — schools, school-admins, classes, courses, subjects, chapters, students, quizzes, quiz-results are all filtered by the user's `school_name` and the school's `class_names` / `course_names`.
+- **Student-ID login**: `/login/student` form labels say "Student ID"; demo STU-9999 → student@cmsedu.ai works.
+- School-Admin creation now mints a user with `role=instructor` and `school_name` (was incorrectly creating role=admin before).
+- Admin sidebar trimmed: removed "Users (Platform)", "Analytics", "Communication", "Support" groups.
+- Student site: profile dropdown with **My Profile** + **Sign out** (header logout button gone).
+- Student My Courses cards: red progress bar removed.
+- Backend test suite at `/app/backend/tests/test_phase1_school_scope.py`. **14/14 backend + 25/25 frontend pass.**
 
-### Frontend
-- Routes: `/login`, `/login/:role`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`, `/auth/callback`, `/unauthorized`, `/{role}/dashboard`, nested sub-pages
-- `AuthContext` with Bearer token in localStorage + `/auth/me` bootstrap (skipped during OAuth callback)
-- `ProtectedRoute` with role allowlist → redirects to `/unauthorized`
-- **AuthLayout** split-screen (role-specific illustrations + copy) with animated particle/aurora background
-- **LoginSelection** 3-role cards with hover glow + gradient borders
-- **Login** role-aware with email/password/show-toggle/remember/forgot + Google button + demo-fill
-- Register, Forgot, Reset, Verify-email, Unauthorized pages
-- **DashboardLayout** — fixed collapsible sidebar (desktop), mobile drawer, sticky glass topbar
-- **Sidebar** — multi-level nested nav (Admin: 7 groups with dropdowns; Instructor/Student: 8–11 items), active highlight, tooltips when collapsed
-- **Topbar** — search, notifications, profile dropdown with logout
-- **Admin Dashboard** — KPIs, revenue AreaChart, enrollments BarChart, recent users table, AI insights
-- **Admin Users** — table with tabs (all / instructors / students / parents) + search
-- **Admin Courses** — course grid
-- **Instructor Dashboard** — KPIs, performance BarChart, today's pulse, course cards
-- **Instructor Courses** — editable course cards
-- **Student Dashboard** — streak, XP progress circle, badges, weekly learning chart, leaderboard with "you" row, continue-learning cards with progress, AI recommendations
-- **Student Courses** — course grid with play/lock
-- 20+ placeholder sub-pages (so every sidebar link resolves) with animated empty-state cards
-- Sonner toasts, framer-motion page transitions, custom CSS particle background
+## Roadmap
 
-## Testing — 2026-05-03 iter 1
-- Backend: 24/25 tests pass (96%). Fixed: brute-force lockout now email-keyed (proxy-safe).
-- Frontend: key flows verified — 3-role login, register, RBAC redirect, session persistence, sidebar collapse, logout, forgot/reset. Fixed: register role dropdown label now contains "Role"; mobile layout uses responsive Tailwind classes.
+### Phase 2 — Admin CRUD & UI polish (P1, NEXT)
+- [ ] Admin CRUD pages: Products, Orders, Fun Hub Links
+- [ ] Working search across all resource tables
+- [ ] Backend pagination + lazy loading (perf)
+- [ ] Chapter Viewer overhaul (Left/Right nav, PDF preview-only, no downloads)
+- [ ] Admin → Student Notifications (with images)
+- [ ] General Student Site card/spacing/icon polish
 
-## Known / Deferred (P1+)
-- **[P1] Emergent Google OAuth** — button wired, backend `/auth/google/session` implemented, but needs real browser test with Google account.
-- **[P1] Course CRUD (Admin/Instructor)** — currently read-only with sample data; write endpoints + forms next.
-- **[P1] Real analytics aggregation** — replace stubbed KPI numbers with MongoDB aggregations.
-- **[P2] Stripe / Razorpay payments** — store, plans, orders, invoices.
-- **[P2] Cloudinary / Emergent storage** — video + PDF uploads for lessons.
-- **[P2] Socket.io real-time notifications**.
-- **[P2] AI chatbot assistant**.
-- **[P2] Zoom / Google Meet live classes**.
-- **[P2] Email verification send** (currently token endpoint exists, no SMTP wired).
-- **[P3] i18n, dark/light toggle, WhatsApp/Telegram**.
+### Phase 3 — Integrations (P1)
+- [ ] Razorpay: Buy Now → Address → Payment → Admin Order *(needs keys from user)*
+- [ ] AI Chatbot for doubt solving *(Gemini 3 Flash via Emergent LLM key)*
+
+### Phase 4 — Delight (P2)
+- [ ] 3D Robot / animated student-site element (deferred by user)
+- [ ] Logo image replacement (waiting for user upload)
+
+### Tech-debt
+- `/app/backend/server.py` is 1300+ lines — split into routers (auth/resources/admin/instructor/student) on a future pass.
 
 ## Test Credentials
 See `/app/memory/test_credentials.md`.
