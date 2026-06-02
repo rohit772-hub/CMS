@@ -15,6 +15,16 @@ Enterprise-grade Multi-Role LMS (Admin, **School Admin**, Student) with modern S
 - File upload field type on resource forms.
 - Student site V1: Dashboard, Classroom, Shop, Subscription, Fun Hub.
 
+### Phase 2 (shipped 2026-02)
+- Admin CRUD pages: `ManageProducts.jsx`, `ManageOrders.jsx`, `ManageFunHub.jsx`, `ManageNotifications.jsx` — all backed by `/api/admin/resources/{kind}` with image uploads, filters, search, downloads.
+- Backend: added `RESOURCE_KINDS` entries for `orders`, `fun-hub`, `notifications`; updated `RESOURCE_SEARCH_FIELDS` + `KIND_PERMS`; added `_search_query()` with `re.escape()` so user input like `C++` no longer crashes the regex.
+- Backend pagination: `list_resources()` + `list_shared()` now accept `limit` (default 200, max 5000) + `offset`. Response includes `{items, total, limit, offset}`.
+- Student endpoints: `GET /api/student/site/notifications` (audience-aware), `GET /api/student/site/fun-hub`.
+- Chapter Viewer overhaul: numbered chapter sidebar, sticky on desktop, Prev / Next buttons with names, "Chapter X of N" counter, PDF preview-only iframe (no download button anywhere); image/video previews mark `controlsList="nodownload"` and disable right-click context menu.
+- Student Home: notifications panel now reads real data with banner images; lazy-loaded course thumbnails.
+- Student Fun Hub: powered by `/student/site/fun-hub` with category badges and lazy image loading.
+- Test files: `/app/backend/tests/test_phase2_resources.py`. **14/14 backend tests pass; frontend playwright run: all real features verified.**
+
 ### Phase 1 (shipped 2026-02)
 - Renamed "Instructor" → **"School Admin"** across UI (login pages, sidebar role badge, dashboard eyebrow, KPI labels, Topbar role display).
 - **Strict school-scoped filtering** for instructor users via `_school_scope_filter(kind, user)` — schools, school-admins, classes, courses, subjects, chapters, students, quizzes, quiz-results are all filtered by the user's `school_name` and the school's `class_names` / `course_names`.
@@ -27,13 +37,13 @@ Enterprise-grade Multi-Role LMS (Admin, **School Admin**, Student) with modern S
 
 ## Roadmap
 
-### Phase 2 — Admin CRUD & UI polish (P1, NEXT)
-- [ ] Admin CRUD pages: Products, Orders, Fun Hub Links
-- [ ] Working search across all resource tables
-- [ ] Backend pagination + lazy loading (perf)
-- [ ] Chapter Viewer overhaul (Left/Right nav, PDF preview-only, no downloads)
-- [ ] Admin → Student Notifications (with images)
-- [ ] General Student Site card/spacing/icon polish
+### Phase 2 — Admin CRUD & UI polish (shipped ✅)
+- [x] Admin CRUD pages: Products, Orders, Fun Hub Links, Notifications
+- [x] Working search across all resource tables (regex-safe)
+- [x] Backend pagination (limit/offset, total returned)
+- [x] Chapter Viewer overhaul (Left/Right nav, PDF preview-only, no downloads)
+- [x] Admin → Student Notifications (with banner images)
+- [x] General Student Site card/spacing/icon polish
 
 ### Phase 3 — Integrations (P1)
 - [ ] Razorpay: Buy Now → Address → Payment → Admin Order *(needs keys from user)*

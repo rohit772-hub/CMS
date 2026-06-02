@@ -34,7 +34,7 @@ export default function FieldRenderer({ field, value, onChange }) {
       <Select value={value ?? ""} onValueChange={onChange}>
         <SelectTrigger className={baseCls} data-testid={`field-${key}`}><SelectValue placeholder={placeholder} /></SelectTrigger>
         <SelectContent className="bg-[#0B1120] border-white/10 text-white">
-          {options.map((o) => <SelectItem key={o.value} value={o.value} data-testid={`field-${key}-option-${o.value}`}>{o.label}</SelectItem>)}
+          {options.map((o, i) => <SelectItem key={`${o.value || "opt"}-${i}`} value={o.value} data-testid={`field-${key}-option-${o.value}`}>{o.label}</SelectItem>)}
         </SelectContent>
       </Select>
     );
