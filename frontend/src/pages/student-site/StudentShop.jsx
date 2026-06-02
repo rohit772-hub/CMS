@@ -3,16 +3,21 @@ import { motion } from "framer-motion";
 import { ShoppingCart, Zap } from "lucide-react";
 import api from "../../lib/api";
 import { toast } from "sonner";
+import BuyNowDialog from "../../components/student/BuyNowDialog";
 
 export default function StudentShop() {
   const [products, setProducts] = useState([]);
-  useEffect(() => { api.get("/student/site/products").then(({ data }) => setProducts(data.products || [])).catch(() => {}); }, []);
+  const [buyProduct, setBuyProduct] = useState(null);
 
-  const buy = async (p, mode) => {
+  useEffect(() => {
+    api.get("/student/site/products").then(({ data }) => setProducts(data.products || [])).catch(() => {});
+  }, []);
+
+  const addToCart = async (p) => {
     try {
       await api.post("/student/site/orders", { product_id: p.id, product_name: p.name, price: p.price });
-      toast.success(mode === "now" ? `Buying ${p.name}!` : `${p.name} added to cart`);
-    } catch (_) { toast.error("Could not place order"); }
+      toast.success(`${p.name} added to cart`);
+    } catch (_) { toast.error("Could not add to cart"); }
   };
 
   return (
@@ -33,14 +38,20 @@ export default function StudentShop() {
                 <span className={`cms-pill ${p.stock !== "out" ? "cms-chip-yellow" : "cms-chip-red"}`}>{p.stock === "out" ? "Out of stock" : "In stock"}</span>
               </div>
               <div className="flex gap-2 mt-4">
-                <button onClick={() => buy(p, "cart")} className="cms-btn-secondary flex-1 text-sm" data-testid={`shop-cart-${p.id}`}><ShoppingCart size={14} className="inline mr-1" /> Add to Cart</button>
-                <button onClick={() => buy(p, "now")} className="cms-btn-primary flex-1 text-sm" data-testid={`shop-buy-${p.id}`}><Zap size={14} className="inline mr-1" /> Buy Now</button>
+                <button onClick={() => addToCart(p)} className="cms-btn-secondary flex-1 text-sm" data-testid={`shop-cart-${p.id}`}><ShoppingCart size={14} className="inline mr-1" /> Add to Cart</button>
+                <button onClick={() => setBuyProduct(p)} disabled={p.stock === "out"} className="cms-btn-primary flex-1 text-sm disabled:opacity-50" data-testid={`shop-buy-${p.id}`}><Zap size={14} className="inline mr-1" /> Buy Now</button>
               </div>
             </div>
           </motion.div>
         ))}
         {!products.length && <p className="text-sm text-[var(--cms-muted)] col-span-full">No products listed yet.</p>}
       </div>
+
+      <BuyNowDialog
+        product={buyProduct}
+        open={!!buyProduct}
+        onOpenChange={(o) => !o && setBuyProduct(null)}
+      />
     </div>
   );
 }

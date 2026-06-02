@@ -1329,6 +1329,20 @@ async def instructor_dashboard(user: dict = Depends(require_role("instructor", "
     return {"totals": totals, "recent_activities": activities, "latest_results": latest_results}
 
 
+# ---------- Sub-routers: chat (AI) + payments (Razorpay) ----------
+try:
+    from chat_router import attach as _attach_chat
+    _attach_chat(api, db, get_current_user)
+except Exception as _e:  # pragma: no cover
+    logger.warning("chat_router not attached: %s", _e)
+
+try:
+    from payments_router import attach as _attach_payments
+    _attach_payments(api, db, get_current_user)
+except Exception as _e:  # pragma: no cover
+    logger.warning("payments_router not attached: %s", _e)
+
+
 app.include_router(api)
 
 

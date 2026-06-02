@@ -9,6 +9,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator,
 } from "../ui/dropdown-menu";
+import ChatWidget from "../student/ChatWidget";
 import "../../styles/student.css";
 
 const NAV = [
@@ -113,6 +114,9 @@ export default function StudentSiteLayout() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {/* Floating AI study buddy */}
+      <ChatWidget context={location.pathname.startsWith("/student/classroom") ? "the student is inside a classroom lesson" : ""} />
     </div>
   );
 }
