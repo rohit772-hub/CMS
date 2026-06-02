@@ -52,9 +52,9 @@ Enterprise-grade Multi-Role LMS (Admin, **School Admin**, Student) with modern S
 - [x] Admin → Student Notifications (with banner images)
 - [x] General Student Site card/spacing/icon polish
 
-### Phase 3 — Integrations (P1)
-- [ ] Razorpay: Buy Now → Address → Payment → Admin Order *(needs keys from user)*
-- [ ] AI Chatbot for doubt solving *(Gemini 3 Flash via Emergent LLM key)*
+### Phase 3 — Integrations (shipped ✅ 2026-02)
+- [x] **Razorpay Buy Now flow** — `/api/payments/{config,create-order,verify,webhook}` endpoints + 3-step `BuyNowDialog` (Address → Payment → Done) on student Shop. HMAC-SHA256 signature verification on /verify. Currently returns 503 'not configured' until user adds `RAZORPAY_KEY_ID` + `RAZORPAY_KEY_SECRET` to `/app/backend/.env`.
+- [x] **AI Chatbot 'Spark'** — `gemini-3-flash-preview` via Emergent LLM key + emergentintegrations. Endpoints: `/chat/{send,history,sessions,session/{id} DELETE}`. Floating bubble on every student-site page; multi-turn memory persisted in Mongo `chat_messages`, session_id stored in `localStorage`. Suggestion chips, "new chat" button, system prompt scoped to K-12 study help.
 
 ### Phase 4 — Delight (P2)
 - [ ] 3D Robot / animated student-site element (deferred by user)

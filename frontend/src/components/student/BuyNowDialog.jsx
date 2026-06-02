@@ -128,37 +128,37 @@ export default function BuyNowDialog({ product, open, onOpenChange, onSuccess })
         </div>
 
         {step !== 3 && (
-          <div className="space-y-3 mt-1">
+          <div className="space-y-4 mt-1" data-testid="buynow-address-step">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs">Full name</Label>
+                <Label className="text-xs font-semibold text-[var(--cms-teal-deep)] mb-1 block">Full name *</Label>
                 <Input value={addr.name} onChange={(e) => setAddr({ ...addr, name: e.target.value })} placeholder="e.g. Noah Patel" data-testid="buynow-name" />
               </div>
               <div>
-                <Label className="text-xs">Phone</Label>
+                <Label className="text-xs font-semibold text-[var(--cms-teal-deep)] mb-1 block">Phone *</Label>
                 <Input value={addr.phone} onChange={(e) => setAddr({ ...addr, phone: e.target.value })} placeholder="+91 98xxxxxx00" data-testid="buynow-phone" />
               </div>
             </div>
             <div>
-              <Label className="text-xs">Address line 1</Label>
+              <Label className="text-xs font-semibold text-[var(--cms-teal-deep)] mb-1 block">Address line 1 *</Label>
               <Input value={addr.line1} onChange={(e) => setAddr({ ...addr, line1: e.target.value })} placeholder="House / flat / building" data-testid="buynow-line1" />
             </div>
             <div>
-              <Label className="text-xs">Address line 2 (optional)</Label>
+              <Label className="text-xs font-semibold text-[var(--cms-teal-deep)] mb-1 block">Address line 2 (optional)</Label>
               <Input value={addr.line2} onChange={(e) => setAddr({ ...addr, line2: e.target.value })} placeholder="Area, landmark…" data-testid="buynow-line2" />
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <Label className="text-xs">City</Label>
-                <Input value={addr.city} onChange={(e) => setAddr({ ...addr, city: e.target.value })} data-testid="buynow-city" />
+                <Label className="text-xs font-semibold text-[var(--cms-teal-deep)] mb-1 block">City *</Label>
+                <Input value={addr.city} onChange={(e) => setAddr({ ...addr, city: e.target.value })} placeholder="Bangalore" data-testid="buynow-city" />
               </div>
               <div>
-                <Label className="text-xs">State</Label>
-                <Input value={addr.state} onChange={(e) => setAddr({ ...addr, state: e.target.value })} data-testid="buynow-state" />
+                <Label className="text-xs font-semibold text-[var(--cms-teal-deep)] mb-1 block">State *</Label>
+                <Input value={addr.state} onChange={(e) => setAddr({ ...addr, state: e.target.value })} placeholder="KA" data-testid="buynow-state" />
               </div>
               <div>
-                <Label className="text-xs">Pincode</Label>
-                <Input value={addr.pincode} onChange={(e) => setAddr({ ...addr, pincode: e.target.value })} data-testid="buynow-pincode" />
+                <Label className="text-xs font-semibold text-[var(--cms-teal-deep)] mb-1 block">Pincode *</Label>
+                <Input value={addr.pincode} onChange={(e) => setAddr({ ...addr, pincode: e.target.value })} placeholder="560001" data-testid="buynow-pincode" />
               </div>
             </div>
             <div className="bg-[var(--cms-teal-soft)]/50 rounded-xl p-3 flex items-start gap-2 text-xs text-[var(--cms-teal-deep)]">
