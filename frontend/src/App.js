@@ -30,6 +30,10 @@ import ManageChapters from "@/pages/admin/ManageChapters";
 import ManageSchools from "@/pages/admin/ManageSchools";
 import ManageSchoolAdmins from "@/pages/admin/ManageSchoolAdmins";
 import ManageStudents from "@/pages/admin/ManageStudents";
+import ManageProducts from "@/pages/admin/ManageProducts";
+import ManageOrders from "@/pages/admin/ManageOrders";
+import ManageFunHub from "@/pages/admin/ManageFunHub";
+import ManageNotifications from "@/pages/admin/ManageNotifications";
 
 import InstructorDashboard from "@/pages/instructor/InstructorDashboard";
 import InstructorCourses from "@/pages/instructor/InstructorCourses";
@@ -90,11 +94,12 @@ function AppRouter() {
         <Route path="classes" element={<ManageClasses />} />
         <Route path="quiz" element={<PlaceholderPage eyebrow="Resources" title="Quizzes" subtitle="Author graded assessments and auto-mark." bullets={["MCQ, short answer, code","Timed mode","Plagiarism flags"]} />} />
         <Route path="plans" element={<PlaceholderPage eyebrow="Store" title="Plans & Subscriptions" subtitle="Configure pricing tiers, trials and coupons." />} />
-        <Route path="products" element={<PlaceholderPage eyebrow="Store" title="Products" subtitle="Physical kits, bundles, merchandise." />} />
+        <Route path="products" element={<ManageProducts />} />
         <Route path="payments" element={<PlaceholderPage eyebrow="Store" title="Payments" subtitle="Payouts, refunds, and reconciliation." />} />
-        <Route path="orders" element={<PlaceholderPage eyebrow="Store" title="Orders" subtitle="Track every checkout and fulfillment." />} />
+        <Route path="orders" element={<ManageOrders />} />
+        <Route path="fun-hub" element={<ManageFunHub />} />
+        <Route path="notifications" element={<ManageNotifications />} />
         <Route path="analytics" element={<PlaceholderPage eyebrow="Analytics" title="Platform analytics" subtitle="Revenue, growth, cohort retention." />} />
-        <Route path="notifications" element={<PlaceholderPage eyebrow="Communication" title="Notifications" subtitle="In-app announcements and alerts." />} />
         <Route path="emails" element={<PlaceholderPage eyebrow="Communication" title="Emails" subtitle="Design and schedule marketing & transactional emails." />} />
         <Route path="announcements" element={<PlaceholderPage eyebrow="Communication" title="Announcements" subtitle="Broadcast to instructors or students." />} />
         <Route path="support" element={<PlaceholderPage eyebrow="Support" title="Support center" subtitle="Help content, feedback and tickets." />} />

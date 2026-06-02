@@ -27,6 +27,7 @@ const ADMIN_NAV = [
     { label: "Products", to: "/admin/products" },
     { label: "Payments", to: "/admin/payments" },
     { label: "Orders", to: "/admin/orders" },
+    { label: "Fun Hub Links", to: "/admin/fun-hub" },
   ]},
   { type: "item", label: "Notifications", to: "/admin/notifications", icon: Bell },
   { type: "group", label: "Settings", icon: Settings, items: [

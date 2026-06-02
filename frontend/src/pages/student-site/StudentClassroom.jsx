@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, BookOpen, FileText, Download, Image as ImgIcon, Video, FileType, Sparkles } from "lucide-react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { ArrowLeft, BookOpen, ChevronLeft, ChevronRight, FileType, Sparkles } from "lucide-react";
 import api from "../../lib/api";
 
 const VIVID = [
@@ -90,23 +90,22 @@ function ResourceViewer({ resource, fallbackTitle }) {
   const name = meta.name || "resource";
 
   if (t.startsWith("image") || /\.(png|jpe?g|gif|webp|svg)$/i.test(name)) {
-    return <img src={url} alt={fallbackTitle} className="rounded-2xl max-h-[70vh] mx-auto" />;
+    return <img src={url} alt={fallbackTitle} loading="lazy" className="rounded-2xl max-h-[70vh] mx-auto" onContextMenu={(e) => e.preventDefault()} />;
   }
   if (t.startsWith("video") || /\.(mp4|webm|mov)$/i.test(name)) {
-    return <video controls src={url} className="w-full rounded-2xl max-h-[70vh] bg-black" />;
+    return <video controls controlsList="nodownload" src={url} className="w-full rounded-2xl max-h-[70vh] bg-black" onContextMenu={(e) => e.preventDefault()} />;
   }
   if (t === "application/pdf" || /\.pdf$/i.test(name) || url.startsWith("data:application/pdf")) {
-    return <iframe title={fallbackTitle} src={url} className="w-full h-[75vh] rounded-2xl bg-white" />;
+    // Preview-only iframe — disable browser toolbar download/print where possible
+    const previewUrl = url + (url.includes("#") ? "&" : "#") + "toolbar=0&navpanes=0&statusbar=0&view=FitH";
+    return <iframe title={fallbackTitle} src={previewUrl} className="w-full h-[75vh] rounded-2xl bg-white" />;
   }
-  // Fallback: downloadable card
+  // Unsupported preview — show a friendly notice (no download).
   return (
-    <div className="cms-card p-8 text-center">
+    <div className="cms-card p-10 text-center">
       <FileType size={42} className="mx-auto text-[var(--cms-teal)]" />
-      <p className="mt-3 font-semibold text-[var(--cms-teal-deep)]">{name}</p>
-      <p className="text-xs text-[var(--cms-muted)] mt-1">This file format opens better outside the browser.</p>
-      <a href={url} download={name} className="cms-btn-primary mt-5 inline-flex items-center gap-2">
-        <Download size={14} /> Download
-      </a>
+      <p className="mt-3 font-semibold text-[var(--cms-teal-deep)]">Preview not available</p>
+      <p className="text-xs text-[var(--cms-muted)] mt-1">Ask your teacher to open this material in class.</p>
     </div>
   );
 }
@@ -120,26 +119,35 @@ function ChapterViewer() {
   }, [subjectId]);
 
   const activeId = params.get("chapter");
-  const active = useMemo(() => data.chapters.find((c) => c.id === activeId) || data.chapters[0], [data, activeId]);
+  const activeIdx = useMemo(() => {
+    const idx = data.chapters.findIndex((c) => c.id === activeId);
+    return idx >= 0 ? idx : 0;
+  }, [data, activeId]);
+  const active = data.chapters[activeIdx];
+  const prev = data.chapters[activeIdx - 1];
+  const next = data.chapters[activeIdx + 1];
+
+  const go = (id) => setParams({ chapter: id });
 
   return (
     <div data-testid="classroom-chapters">
       <Link to={`/student/classroom/${courseId}`} className="inline-flex items-center gap-1 text-[var(--cms-teal)] text-sm font-semibold mb-3"><ArrowLeft size={14} /> Back to subjects</Link>
       <h1 className="font-heading text-3xl font-bold">{data.subject?.name || "Subject"}</h1>
-      <p className="text-[var(--cms-muted)] mb-6">Tap a chapter on the left to open its resource.</p>
+      <p className="text-[var(--cms-muted)] mb-6">Use the arrows below the viewer to move between chapters — your teacher will see your progress.</p>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5">
-        <aside className="cms-card p-3 h-fit">
-          <p className="text-xs uppercase tracking-widest text-[var(--cms-muted)] px-2 py-2">Chapters</p>
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5">
+        <aside className="cms-card p-3 h-fit lg:sticky lg:top-24">
+          <p className="text-xs uppercase tracking-widest text-[var(--cms-muted)] px-2 py-2">Chapters · {data.chapters.length}</p>
           {data.chapters.length === 0 && <p className="px-2 py-2 text-sm text-[var(--cms-muted)]">No chapters yet.</p>}
-          <ul className="space-y-1">
-            {data.chapters.map((c) => {
+          <ul className="space-y-1 max-h-[60vh] overflow-y-auto">
+            {data.chapters.map((c, i) => {
               const isActive = active?.id === c.id;
               return (
                 <li key={c.id}>
-                  <button onClick={() => setParams({ chapter: c.id })} data-testid={`chapter-link-${c.id}`}
-                    className={`w-full text-left px-3 py-2.5 rounded-xl text-sm flex items-center gap-2 transition ${isActive ? "bg-[var(--cms-teal)] text-white" : "text-[var(--cms-teal-deep)] hover:bg-[var(--cms-teal-soft)]"}`}>
-                    <BookOpen size={14} className="shrink-0" />
+                  <button onClick={() => go(c.id)} data-testid={`chapter-link-${c.id}`}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-sm flex items-center gap-2 transition ${isActive ? "bg-[var(--cms-teal)] text-white shadow-md" : "text-[var(--cms-teal-deep)] hover:bg-[var(--cms-teal-soft)]"}`}>
+                    <span className={`w-6 h-6 rounded-full grid place-items-center text-[11px] font-semibold shrink-0 ${isActive ? "bg-white/20 text-white" : "bg-[var(--cms-teal-soft)] text-[var(--cms-teal-deep)]"}`}>{i + 1}</span>
+                    <BookOpen size={14} className="shrink-0 opacity-70" />
                     <span className="truncate">{c.name}</span>
                   </button>
                 </li>
@@ -153,16 +161,25 @@ function ChapterViewer() {
             <>
               <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-[var(--cms-muted)]">Chapter</p>
+                  <p className="text-xs uppercase tracking-widest text-[var(--cms-muted)]">Chapter {activeIdx + 1} of {data.chapters.length}</p>
                   <h2 className="font-heading text-2xl font-bold text-[var(--cms-teal-deep)]">{active.name}</h2>
                 </div>
-                {active.resource && (
-                  <a href={(fileMeta(active.resource) || {}).url} download={(fileMeta(active.resource) || {}).name || "resource"} className="cms-btn-ghost text-xs inline-flex items-center gap-2" data-testid="chapter-download">
-                    <Download size={12} /> Download
-                  </a>
-                )}
               </div>
               <ResourceViewer resource={active.resource} fallbackTitle={active.name} />
+
+              <div className="mt-6 flex items-center justify-between gap-3">
+                <button onClick={() => prev && go(prev.id)} disabled={!prev}
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition ${prev ? "bg-white border border-[var(--cms-teal-soft)] text-[var(--cms-teal-deep)] hover:bg-[var(--cms-teal-soft)]" : "bg-zinc-100 text-zinc-400 cursor-not-allowed"}`}
+                  data-testid="chapter-prev">
+                  <ChevronLeft size={16} /> {prev ? `Previous · ${prev.name}` : "Previous"}
+                </button>
+                <p className="text-xs text-[var(--cms-muted)] hidden md:block">Step {activeIdx + 1} / {data.chapters.length}</p>
+                <button onClick={() => next && go(next.id)} disabled={!next}
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition ${next ? "bg-[var(--cms-teal)] text-white hover:bg-[var(--cms-teal-deep)]" : "bg-zinc-100 text-zinc-400 cursor-not-allowed"}`}
+                  data-testid="chapter-next">
+                  {next ? `Next · ${next.name}` : "Last chapter"} <ChevronRight size={16} />
+                </button>
+              </div>
             </>
           ) : (
             <div className="text-center text-[var(--cms-muted)] py-10">Select a chapter to begin.</div>

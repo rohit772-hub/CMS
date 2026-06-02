@@ -5,6 +5,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
 import os
+import re
 import uuid
 import secrets
 import logging
@@ -725,6 +726,35 @@ async def student_site_update_order(order_id: str, payload: dict, user: dict = D
     return {"ok": True}
 
 
+@api.get("/student/site/notifications")
+async def student_site_notifications(user: dict = Depends(get_current_user)):
+    """Return notifications visible to the current student.
+
+    A notification is visible if its audience is 'all' OR if it targets a specific
+    school/class/student matching the user. Admin/instructor previews see all rows.
+    """
+    if user.get("role") in ("admin", "instructor"):
+        items = await db.notifications.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+        return {"notifications": items}
+    # Build the student's context
+    stu = await db.students_admin.find_one({"email": (user.get("email") or "").lower()}, {"_id": 0}) or {}
+    user_school = stu.get("school_name") or ""
+    user_class = stu.get("class_name") or ""
+    ors = [{"audience": "all"}, {"audience": {"$exists": False}}, {"audience": None}]
+    if user_school:
+        ors.append({"audience": "school", "school_name": user_school})
+    if user_class:
+        ors.append({"audience": "class", "class_name": user_class})
+    items = await db.notifications.find({"$or": ors, "status": {"$ne": "disabled"}}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return {"notifications": items}
+
+
+@api.get("/student/site/fun-hub")
+async def student_site_fun_hub(user: dict = Depends(require_role("student", "admin", "instructor"))):
+    items = await db.fun_hub.find({"status": {"$ne": "disabled"}}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"links": items}
+
+
 # ---------- Health ----------
 @api.get("/")
 async def root():
@@ -746,6 +776,9 @@ RESOURCE_KINDS = {
     "results": "results",
     "products": "products",
     "plans": "plans",
+    "orders": "student_orders",
+    "fun-hub": "fun_hub",
+    "notifications": "notifications",
 }
 
 # Fields to search across (text match)
@@ -757,11 +790,14 @@ RESOURCE_SEARCH_FIELDS = {
     "chapters": ["name", "class_name", "course_name", "subject_name"],
     "school-admins": ["name", "email", "mobile", "school_name"],
     "students": ["name", "email", "phone", "parent_name", "school_name", "division", "student_id", "class_name"],
-    "quizzes": ["title", "quiz_id", "class_name", "subject_name"],
+    "quizzes": ["title", "name", "quiz_id", "class_name", "subject_name"],
     "quiz-results": ["student_name", "student_id", "quiz_name", "subject_name", "class_name", "division"],
     "results": ["student_name", "student_id", "subject_name", "class_name", "division", "grade"],
-    "products": ["name", "description"],
-    "plans": ["name", "title"],
+    "products": ["name", "description", "category", "sku"],
+    "plans": ["name", "title", "description"],
+    "orders": ["order_id", "user_email", "user_name", "product_name", "status"],
+    "fun-hub": ["title", "category", "description", "url"],
+    "notifications": ["title", "body", "audience", "class_name", "school_name"],
 }
 
 
@@ -778,6 +814,9 @@ KIND_PERMS = {
     "results":       {"read": {"admin", "instructor"}, "write": {"admin", "instructor"}},
     "products":      {"read": {"admin", "instructor"}, "write": {"admin"}},
     "plans":         {"read": {"admin", "instructor"}, "write": {"admin"}},
+    "orders":        {"read": {"admin", "instructor"}, "write": {"admin"}},
+    "fun-hub":       {"read": {"admin", "instructor"}, "write": {"admin"}},
+    "notifications": {"read": {"admin", "instructor"}, "write": {"admin"}},
 }
 
 
@@ -869,18 +908,33 @@ def _clean(doc: dict) -> dict:
     return d
 
 
+def _search_query(kind: str, q: str) -> dict:
+    if not q:
+        return {}
+    fields = RESOURCE_SEARCH_FIELDS.get(kind, ["name"])
+    # Escape regex special characters so user input like "C++" doesn't break the query
+    safe = re.escape(q.strip())
+    regex = {"$regex": safe, "$options": "i"}
+    return {"$or": [{f: regex} for f in fields]}
+
+
 @api.get("/admin/resources/{kind}")
-async def list_resources(kind: str, q: str = "", user: dict = Depends(require_role("admin"))):
+async def list_resources(
+    kind: str,
+    q: str = "",
+    limit: int = 200,
+    offset: int = 0,
+    user: dict = Depends(require_role("admin")),
+):
     coll = _require_kind(kind)
-    query = {}
-    if q:
-        fields = RESOURCE_SEARCH_FIELDS.get(kind, ["name"])
-        regex = {"$regex": q, "$options": "i"}
-        query = {"$or": [{f: regex} for f in fields]}
-    items = await db[coll].find(query, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    limit = max(1, min(int(limit or 200), 5000))
+    offset = max(0, int(offset or 0))
+    query = _search_query(kind, q)
+    total = await db[coll].count_documents(query)
+    items = await db[coll].find(query, {"_id": 0}).sort("created_at", -1).skip(offset).limit(limit).to_list(limit)
     for it in items:
         it.pop("password_hash", None)
-    return {"items": items, "total": len(items)}
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
 @api.post("/admin/resources/{kind}")
@@ -1069,23 +1123,28 @@ async def admin_dashboard(user: dict = Depends(require_role("admin"))):
 
 # ---------- Shared resource router (admin + instructor with per-kind perms) ----------
 @api.get("/resources/{kind}")
-async def list_shared(kind: str, q: str = "", user: dict = Depends(get_current_user)):
+async def list_shared(
+    kind: str,
+    q: str = "",
+    limit: int = 200,
+    offset: int = 0,
+    user: dict = Depends(get_current_user),
+):
     coll = _require_kind(kind)
     if not _can(kind, "read", user):
         raise HTTPException(status_code=403, detail="Forbidden")
-    query = {}
-    if q:
-        fields = RESOURCE_SEARCH_FIELDS.get(kind, ["name"])
-        regex = {"$regex": q, "$options": "i"}
-        query = {"$or": [{f: regex} for f in fields]}
+    limit = max(1, min(int(limit or 200), 5000))
+    offset = max(0, int(offset or 0))
+    query = _search_query(kind, q)
     # School Admin (instructor) scoping
     scope = await _school_scope_filter(kind, user)
     if scope is not None:
         query = {"$and": [query, scope]} if query else scope
-    items = await db[coll].find(query, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    total = await db[coll].count_documents(query)
+    items = await db[coll].find(query, {"_id": 0}).sort("created_at", -1).skip(offset).limit(limit).to_list(limit)
     for it in items:
         it.pop("password_hash", None)
-    return {"items": items, "total": len(items)}
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
 @api.post("/resources/{kind}")
@@ -1224,6 +1283,25 @@ async def _seed():
             await db.products.insert_many(kits)
     except Exception as e:
         logger.warning("product seed failed: %s", e)
+    # Seed sample Fun Hub links + Notifications (idempotent)
+    try:
+        if await db.fun_hub.count_documents({}) == 0:
+            now = datetime.now(timezone.utc).isoformat()
+            rows = [
+                {"id": "fh_001", "title": "Code your first game",       "category": "Game",       "description": "Build a snake game in 30 minutes.", "url": "https://scratch.mit.edu", "image": "https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=900", "status": "active", "created_at": now, "updated_at": now},
+                {"id": "fh_002", "title": "Robot of the week",          "category": "Robot",      "description": "Meet Spot, the dancing quadruped.",  "url": "https://www.bostondynamics.com", "image": "https://images.unsplash.com/photo-1581090700227-1e37b190418e?w=900", "status": "active", "created_at": now, "updated_at": now},
+                {"id": "fh_003", "title": "Daily challenge: Loops",     "category": "Challenge",  "description": "Solve 3 loop puzzles to earn 100 pts.","url": "https://hourofcode.com", "image": "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=900", "status": "active", "created_at": now, "updated_at": now},
+            ]
+            await db.fun_hub.insert_many(rows)
+        if await db.notifications.count_documents({}) == 0:
+            now = datetime.now(timezone.utc).isoformat()
+            rows = [
+                {"id": "ntf_001", "title": "Welcome to Create Mind Studio!", "body": "Tap Classroom to begin your first lesson.", "audience": "all", "image": "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=900", "status": "active", "created_at": now, "updated_at": now},
+                {"id": "ntf_002", "title": "New quiz: Python Loops",        "body": "Complete it before Friday for bonus points.",  "audience": "all", "image": None, "status": "active", "created_at": now, "updated_at": now},
+            ]
+            await db.notifications.insert_many(rows)
+    except Exception as e:
+        logger.warning("fun_hub/notifications seed failed: %s", e)
     try:
         await db.recent_activities.create_index([("created_at", -1)])
     except Exception:

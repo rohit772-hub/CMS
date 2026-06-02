@@ -17,15 +17,18 @@ export default function StudentHome() {
   const { user } = useAuth();
   const [courses, setCourses] = useState([]);
   const [chapters, setChapters] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   useEffect(() => {
     (async () => {
       try {
-        const [c, ch] = await Promise.all([
+        const [c, ch, nt] = await Promise.all([
           api.get("/student/site/courses"),
           api.get("/student/site/chapters?limit=6"),
+          api.get("/student/site/notifications"),
         ]);
         setCourses(c.data.courses || []);
         setChapters(ch.data.chapters || []);
+        setNotifications(nt.data.notifications || []);
       } catch (_) {}
     })();
   }, []);
@@ -124,20 +127,28 @@ export default function StudentHome() {
 
         <section className="cms-card p-5">
           <h3 className="font-heading text-xl font-semibold mb-3 flex items-center gap-2"><Bell size={18} className="text-[var(--cms-red)]" /> Notifications</h3>
-          <ul className="space-y-3">
-            {[
-              { label: "Subscription activated — welcome to Pro!", chip: "Pro" },
-              { label: "New course added: AI Projects", chip: "Course" },
-              { label: "Robotics Kit order confirmed", chip: "Order" },
-            ].map((n, i) => (
-              <li key={i} className="flex items-start gap-3 p-3 rounded-xl bg-[var(--cms-teal-soft)]/40">
-                <span className="mt-1 w-1.5 h-1.5 rounded-full bg-[var(--cms-red)]" />
-                <div className="flex-1">
-                  <p className="text-sm text-[var(--cms-teal-deep)]">{n.label}</p>
-                </div>
-                <span className="cms-pill cms-chip-red">{n.chip}</span>
-              </li>
-            ))}
+          <ul className="space-y-3 max-h-[420px] overflow-y-auto pr-1" data-testid="student-notifications-list">
+            {notifications.length === 0 && (
+              <li className="text-sm text-[var(--cms-muted)] py-4">You're all caught up! No new notifications.</li>
+            )}
+            {notifications.map((n) => {
+              const img = typeof n.image === "string" ? n.image : n.image?.url;
+              const chip = n.audience === "all" ? "All" : n.audience === "school" ? "School" : n.audience === "class" ? "Class" : "Info";
+              return (
+                <li key={n.id} className="flex items-start gap-3 p-3 rounded-xl bg-[var(--cms-teal-soft)]/40" data-testid={`notif-${n.id}`}>
+                  {img ? (
+                    <img src={img} alt="" loading="lazy" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                  ) : (
+                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-[var(--cms-red)] shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-[var(--cms-teal-deep)] truncate">{n.title}</p>
+                    {n.body && <p className="text-xs text-[var(--cms-muted)] line-clamp-2">{n.body}</p>}
+                  </div>
+                  <span className="cms-pill cms-chip-red shrink-0">{chip}</span>
+                </li>
+              );
+            })}
           </ul>
         </section>
       </div>
