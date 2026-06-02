@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard, Sparkles, ChevronDown, ChevronLeft, ChevronRight,
-  GraduationCap, BookOpen, Users, BarChart3, Bell, Settings, LifeBuoy,
-  Megaphone, ShieldCheck, ShoppingBag, FileBarChart, MessagesSquare,
-  Trophy, Heart, ScrollText, Wallet, Star, Calendar, X,
+  LayoutDashboard, ChevronDown, ChevronLeft, ChevronRight,
+  GraduationCap, BookOpen, Users, Bell, Settings,
+  ShieldCheck, ShoppingBag, FileBarChart, MessagesSquare,
+  Trophy, Heart, ScrollText, Wallet, Star, X,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import Brand from "../Brand";
@@ -28,33 +28,10 @@ const ADMIN_NAV = [
     { label: "Payments", to: "/admin/payments" },
     { label: "Orders", to: "/admin/orders" },
   ]},
-  { type: "group", label: "Users (Platform)", icon: Users, items: [
-    { label: "Instructors", to: "/admin/users?tab=instructors" },
-    { label: "Students (Platform)", to: "/admin/users?tab=students" },
-    { label: "Parents", to: "/admin/users?tab=parents" },
-  ]},
-  { type: "group", label: "Analytics", icon: BarChart3, items: [
-    { label: "Revenue", to: "/admin/analytics?tab=revenue" },
-    { label: "Enrollments", to: "/admin/analytics?tab=enrollments" },
-    { label: "Growth", to: "/admin/analytics?tab=growth" },
-  ]},
-  { type: "group", label: "Communication", icon: Megaphone, items: [
-    { label: "Notifications", to: "/admin/notifications" },
-    { label: "Emails", to: "/admin/emails" },
-    { label: "Announcements", to: "/admin/announcements" },
-  ]},
+  { type: "item", label: "Notifications", to: "/admin/notifications", icon: Bell },
   { type: "group", label: "Settings", icon: Settings, items: [
     { label: "General", to: "/admin/settings" },
     { label: "Payment Gateway", to: "/admin/settings#payment" },
-    { label: "Theme", to: "/admin/settings?tab=theme" },
-    { label: "Notifications", to: "/admin/settings?tab=notifications" },
-    { label: "Platform", to: "/admin/settings?tab=platform" },
-    { label: "System Config", to: "/admin/settings?tab=system" },
-  ]},
-  { type: "group", label: "Support", icon: LifeBuoy, items: [
-    { label: "Help Center", to: "/admin/support?tab=help" },
-    { label: "Feedback", to: "/admin/support?tab=feedback" },
-    { label: "Tickets", to: "/admin/support?tab=tickets" },
   ]},
 ];
 
@@ -209,7 +186,7 @@ export default function Sidebar({ role, collapsed, onToggle, mobileOpen, onMobil
           )}
         </div>
         <div className="px-3 py-3 border-t border-white/5 flex items-center justify-between gap-2">
-          {!collapsed && <span className="text-[10px] uppercase tracking-[0.2em] text-[#64748B]">{role}</span>}
+          {!collapsed && <span className="text-[10px] uppercase tracking-[0.2em] text-[#64748B]">{role === "instructor" ? "School Admin" : role}</span>}
           <button onClick={onToggle}
             className="hidden lg:flex w-8 h-8 rounded-lg items-center justify-center hover:bg-white/5 text-[#A0ABC0] ml-auto"
             data-testid="sidebar-toggle-button"

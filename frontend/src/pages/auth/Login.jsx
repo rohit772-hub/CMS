@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Eye, EyeOff, Loader2, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Loader2, Mail, Lock, IdCard } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -12,14 +12,14 @@ import { formatApiError } from "../../lib/api";
 
 const TITLES = {
   admin: { title: "Admin sign-in", subtitle: "Welcome back, captain. Your console awaits." },
-  instructor: { title: "Instructor sign-in", subtitle: "Light up minds. Sign in to your studio." },
+  instructor: { title: "School Admin sign-in", subtitle: "Manage your school, students and courses." },
   student: { title: "Student sign-in", subtitle: "Pick up your streak right where you left off." },
 };
 
 const DEMOS = {
   admin: { email: "admin@cmsedu.ai", password: "Demo@123" },
   instructor: { email: "instructor@cmsedu.ai", password: "Demo@123" },
-  student: { email: "student@cmsedu.ai", password: "Demo@123" },
+  student: { email: "STU-9999", password: "Demo@123" },
 };
 
 export default function Login() {
@@ -38,10 +38,13 @@ export default function Login() {
 
   const fillDemo = () => { setEmail(DEMOS[role].email); setPassword(DEMOS[role].password); };
 
+  const isStudent = role === "student";
+  const idLabel = isStudent ? "Student ID" : "Email";
+
   const onSubmit = async (e) => {
     e.preventDefault();
     setErr("");
-    if (!email || !password) { setErr("Email and password are required."); return; }
+    if (!email || !password) { setErr(`${idLabel} and password are required.`); return; }
     setBusy(true);
     try {
       const u = await login({ email: email.trim(), password, remember, role });
@@ -57,13 +60,17 @@ export default function Login() {
     <AuthLayout role={role} title={meta.title} subtitle={meta.subtitle}>
       <form onSubmit={onSubmit} className="space-y-5" data-testid={`login-form-${role}`}>
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-sm font-medium text-[#A0ABC0]">Email</Label>
+          <Label htmlFor="email" className="text-sm font-medium text-[#A0ABC0]">{idLabel}</Label>
           <div className="relative">
-            <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
+            {isStudent ? (
+              <IdCard size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
+            ) : (
+              <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
+            )}
             <Input
-              id="email" type="email" autoComplete="email" required
+              id="email" type={isStudent ? "text" : "email"} autoComplete={isStudent ? "username" : "email"} required
               value={email} onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@cmsedu.ai"
+              placeholder={isStudent ? "e.g. STU-1042" : "you@cmsedu.ai"}
               className="pl-9 h-12 bg-white/5 border-white/10 text-white placeholder:text-[#64748B] focus-visible:ring-cyan-400/60"
               data-testid="login-email-input"
             />

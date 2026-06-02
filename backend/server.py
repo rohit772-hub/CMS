@@ -766,7 +766,7 @@ RESOURCE_SEARCH_FIELDS = {
 
 
 KIND_PERMS = {
-    "schools":       {"read": {"admin"}, "write": {"admin"}},
+    "schools":       {"read": {"admin", "instructor"}, "write": {"admin"}},
     "school-admins": {"read": {"admin"}, "write": {"admin"}},
     "classes":       {"read": {"admin", "instructor"}, "write": {"admin"}},
     "courses":       {"read": {"admin", "instructor"}, "write": {"admin"}},
@@ -785,6 +785,60 @@ def _can(kind: str, action: str, user: dict) -> bool:
     perms = KIND_PERMS.get(kind, {"read": {"admin"}, "write": {"admin"}})
     roles = perms.get(action, set())
     return user.get("role") in roles
+
+
+async def _school_scope_filter(kind: str, user: dict) -> Optional[dict]:
+    """For instructor (School Admin) role, restrict resource listings to their own school.
+
+    Returns a Mongo filter dict to AND with the user's query, or None if no filter is needed
+    (e.g. user is admin), or an impossible filter ({"id": "__none__"}) if instructor has no school assigned.
+    """
+    if user.get("role") != "instructor":
+        return None
+    school_name = (user.get("school_name") or "").strip()
+    if not school_name:
+        return {"id": "__none__"}  # never matches → empty list
+
+    if kind == "schools":
+        return {"name": school_name}
+    if kind in ("school-admins", "students"):
+        return {"school_name": school_name}
+
+    # Class-aware resources: classes, courses, subjects, chapters, quizzes, quiz-results, results
+    school = await db.schools.find_one({"name": school_name}, {"_id": 0, "class_names": 1, "course_names": 1})
+    class_names = list((school or {}).get("class_names") or [])
+    course_names = list((school or {}).get("course_names") or [])
+    if not class_names and not course_names:
+        return {"id": "__none__"}
+
+    if kind == "classes":
+        return {"name": {"$in": class_names}} if class_names else {"id": "__none__"}
+    if kind == "courses":
+        ors = []
+        if class_names:
+            ors += [{"class_names": {"$in": class_names}}, {"class_name": {"$in": class_names}}]
+        if course_names:
+            ors.append({"name": {"$in": course_names}})
+        return {"$or": ors} if ors else {"id": "__none__"}
+    if kind == "subjects":
+        ors = []
+        if class_names:
+            ors += [{"class_names": {"$in": class_names}}, {"class_name": {"$in": class_names}}]
+        if course_names:
+            ors += [{"course_names": {"$in": course_names}}, {"course_name": {"$in": course_names}}]
+        return {"$or": ors} if ors else {"id": "__none__"}
+    if kind == "chapters":
+        ors = []
+        if class_names:
+            ors.append({"class_name": {"$in": class_names}})
+        if course_names:
+            ors.append({"course_name": {"$in": course_names}})
+        return {"$or": ors} if ors else {"id": "__none__"}
+    if kind in ("quizzes", "quiz-results", "results"):
+        return {"class_name": {"$in": class_names}} if class_names else {"id": "__none__"}
+    if kind in ("products", "plans"):
+        return None  # platform-wide store, instructor can see catalog
+    return None
 
 
 def _activity_doc(kind: str, action: str, label: str, by_user: dict):
@@ -846,16 +900,23 @@ async def create_resource(kind: str, payload: dict, user: dict = Depends(require
         if not email:
             raise HTTPException(status_code=400, detail="Email is required")
         password = doc.get("password") or "Demo@123"
-        if await db.users.find_one({"email": email}):
-            # reuse existing user
-            pass
+        school_name = (doc.get("school_name") or "").strip()
+        existing_user = await db.users.find_one({"email": email})
+        if existing_user:
+            # Promote / link to school (do not downgrade admins)
+            update = {"school_name": school_name} if school_name else {}
+            if existing_user.get("role") not in ("admin",):
+                update["role"] = "instructor"
+            if update:
+                await db.users.update_one({"email": email}, {"$set": update})
         else:
             await db.users.insert_one({
                 "user_id": f"user_{uuid.uuid4().hex[:12]}",
                 "email": email, "name": doc.get("name") or email,
                 "password_hash": hash_password(password),
-                "role": "admin", "auth_provider": "password",
+                "role": "instructor", "auth_provider": "password",
                 "email_verified": True, "avatar_url": doc.get("avatar_url"),
+                "school_name": school_name,
                 "created_at": now,
             })
         doc.pop("password", None)
@@ -950,13 +1011,22 @@ async def bulk_create(kind: str, payload: dict, user: dict = Depends(require_rol
         d["updated_at"] = now
         if kind == "school-admins" and d.get("email"):
             email = d["email"].lower().strip()
-            if not await db.users.find_one({"email": email}):
+            school_name = (d.get("school_name") or "").strip()
+            existing_user = await db.users.find_one({"email": email})
+            if existing_user:
+                update = {"school_name": school_name} if school_name else {}
+                if existing_user.get("role") not in ("admin",):
+                    update["role"] = "instructor"
+                if update:
+                    await db.users.update_one({"email": email}, {"$set": update})
+            else:
                 await db.users.insert_one({
                     "user_id": f"user_{uuid.uuid4().hex[:12]}",
                     "email": email, "name": d.get("name") or email,
                     "password_hash": hash_password(d.get("password") or "Demo@123"),
-                    "role": "admin", "auth_provider": "password",
-                    "email_verified": True, "avatar_url": None, "created_at": now,
+                    "role": "instructor", "auth_provider": "password",
+                    "email_verified": True, "avatar_url": None,
+                    "school_name": school_name, "created_at": now,
                 })
             d.pop("password", None); d["email"] = email
         elif kind == "students" and d.get("email"):
@@ -1008,6 +1078,10 @@ async def list_shared(kind: str, q: str = "", user: dict = Depends(get_current_u
         fields = RESOURCE_SEARCH_FIELDS.get(kind, ["name"])
         regex = {"$regex": q, "$options": "i"}
         query = {"$or": [{f: regex} for f in fields]}
+    # School Admin (instructor) scoping
+    scope = await _school_scope_filter(kind, user)
+    if scope is not None:
+        query = {"$and": [query, scope]} if query else scope
     items = await db[coll].find(query, {"_id": 0}).sort("created_at", -1).to_list(5000)
     for it in items:
         it.pop("password_hash", None)
@@ -1067,20 +1141,27 @@ async def bulk_delete_shared(kind: str, payload: dict, user: dict = Depends(get_
 
 @api.get("/instructor/dashboard")
 async def instructor_dashboard(user: dict = Depends(require_role("instructor", "admin"))):
-    async def count(c): return await db[c].count_documents({})
+    # Build scope-aware counts for the School Admin
+    async def scoped_count(coll: str, kind: str):
+        scope = await _school_scope_filter(kind, user)
+        q = scope or {}
+        return await db[coll].count_documents(q)
+
     totals = {
-        "classes": await count("classes"),
-        "students": await count("students_admin"),
-        "instructors": await db.users.count_documents({"role": "instructor"}),
-        "subjects": await count("subjects"),
-        "courses": await count("courses_admin"),
-        "quizzes": await count("quizzes"),
-        "quiz_attempts": await count("quiz_results"),
+        "classes":       await scoped_count("classes", "classes"),
+        "students":      await scoped_count("students_admin", "students"),
+        "instructors":   await db.users.count_documents({"role": "instructor"} if user.get("role") == "admin" else {"role": "instructor", "school_name": user.get("school_name") or "__none__"}),
+        "subjects":      await scoped_count("subjects", "subjects"),
+        "courses":       await scoped_count("courses_admin", "courses"),
+        "quizzes":       await scoped_count("quizzes", "quizzes"),
+        "quiz_attempts": await scoped_count("quiz_results", "quiz-results"),
     }
     activities = await db.recent_activities.find(
         {"kind": {"$in": ["students", "quiz-results", "quizzes", "results"]}}, {"_id": 0}
     ).sort("created_at", -1).to_list(10)
-    latest_results = await db.quiz_results.find({}, {"_id": 0}).sort("created_at", -1).to_list(8)
+    # Scope latest quiz results
+    qr_scope = await _school_scope_filter("quiz-results", user) or {}
+    latest_results = await db.quiz_results.find(qr_scope, {"_id": 0}).sort("created_at", -1).to_list(8)
     return {"totals": totals, "recent_activities": activities, "latest_results": latest_results}
 
 
@@ -1175,6 +1256,64 @@ async def _seed():
         elif not verify_password(password, existing.get("password_hash", "")):
             await db.users.update_one({"email": email}, {"$set": {"password_hash": hash_password(password), "role": role}})
             logger.info("Updated password for %s", email)
+
+    # Seed a students_admin entry so the student demo can login with STU-9999
+    try:
+        student_email = (os.environ.get("STUDENT_EMAIL") or "").lower()
+        if student_email and not await db.students_admin.find_one({"student_id": "STU-9999"}):
+            now = datetime.now(timezone.utc).isoformat()
+            await db.students_admin.insert_one({
+                "id": f"stu_demo_{uuid.uuid4().hex[:8]}",
+                "student_id": "STU-9999",
+                "name": "Noah Patel",
+                "email": student_email,
+                "class_name": "Class 9",
+                "division": "A",
+                "school_name": "Ridgeview Academy",
+                "status": "active",
+                "created_at": now, "updated_at": now,
+            })
+    except Exception as e:
+        logger.warning("student demo seed failed: %s", e)
+
+    # Seed a default school + assign the demo School Admin (instructor) to it.
+    try:
+        instructor_email = (os.environ.get("INSTRUCTOR_EMAIL") or "").lower()
+        if instructor_email:
+            now = datetime.now(timezone.utc).isoformat()
+            existing_school = await db.schools.find_one({"name": "Ridgeview Academy"})
+            if not existing_school:
+                await db.schools.insert_one({
+                    "id": f"sch_demo_{uuid.uuid4().hex[:8]}",
+                    "name": "Ridgeview Academy",
+                    "code": "RVA-001",
+                    "email": "admin@ridgeview.edu",
+                    "phone": "+1 555 0100",
+                    "principal_name": "Dr. Jane Doe",
+                    "address": "1 Ridge Way",
+                    "class_names": ["Class 8", "Class 9", "Class 10"],
+                    "course_names": [],
+                    "status": "active",
+                    "created_at": now, "updated_at": now,
+                })
+            # Ensure the demo instructor user has school_name set
+            await db.users.update_one(
+                {"email": instructor_email},
+                {"$set": {"school_name": "Ridgeview Academy"}},
+            )
+            # Mirror into school_admins collection (idempotent)
+            if not await db.school_admins.find_one({"email": instructor_email}):
+                await db.school_admins.insert_one({
+                    "id": f"sad_demo_{uuid.uuid4().hex[:8]}",
+                    "name": "Lila Hart",
+                    "email": instructor_email,
+                    "mobile": "+1 555 0101",
+                    "school_name": "Ridgeview Academy",
+                    "status": "active",
+                    "created_at": now, "updated_at": now,
+                })
+    except Exception as e:
+        logger.warning("school demo seed failed: %s", e)
 
 
 @app.on_event("startup")

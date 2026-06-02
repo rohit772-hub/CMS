@@ -56,7 +56,7 @@ export default function Topbar({ user, onBurger }) {
               </Avatar>
               <div className="hidden md:block text-left leading-tight">
                 <p className="text-sm font-medium">{user?.name}</p>
-                <p className="text-[11px] uppercase tracking-widest text-cyan-300">{user?.role}</p>
+                <p className="text-[11px] uppercase tracking-widest text-cyan-300">{user?.role === "instructor" ? "School Admin" : user?.role}</p>
               </div>
             </button>
           </DropdownMenuTrigger>

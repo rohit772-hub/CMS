@@ -8,8 +8,8 @@ import Brand from "../../components/Brand";
 const ROLES = [
   {
     key: "instructor",
-    label: "Instructor Login",
-    desc: "Manage your students, courses and resources.",
+    label: "School Admin Login",
+    desc: "Manage your school's students, courses and resources.",
     icon: BookOpen,
     accent: "from-[#126b6e] to-[#0d3b3f]",
     glow: "rgba(18,107,110,0.5)",

@@ -1,10 +1,14 @@
 import React, { useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, BookOpen, Crown, ShoppingBag, Receipt, Sparkles, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, BookOpen, Crown, ShoppingBag, Receipt, Sparkles, LogOut, Menu, X, User } from "lucide-react";
 import Brand from "../Brand";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "sonner";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator,
+} from "../ui/dropdown-menu";
 import "../../styles/student.css";
 
 const NAV = [
@@ -47,13 +51,30 @@ export default function StudentSiteLayout() {
             })}
           </nav>
           <div className="ml-auto flex items-center gap-3">
-            <button onClick={async () => { await logout(); toast.success("See you soon!"); navigate("/login", { replace: true }); }}
-              className="hidden md:inline-flex cms-btn-ghost text-xs" data-testid="student-logout">
-              <LogOut size={14} className="mr-1.5" /> Sign out
-            </button>
-            <div className="w-10 h-10 rounded-full bg-[var(--cms-teal)] text-white flex items-center justify-center font-semibold text-sm shadow-md ring-2 ring-[var(--cms-yellow)]" data-testid="student-avatar">
-              {initials}
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 pl-1.5 pr-1.5 py-1 rounded-full hover:bg-[var(--cms-teal-soft)] transition" data-testid="student-profile-trigger">
+                  <div className="w-10 h-10 rounded-full bg-[var(--cms-teal)] text-white flex items-center justify-center font-semibold text-sm shadow-md ring-2 ring-[var(--cms-yellow)]" data-testid="student-avatar">
+                    {initials}
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="!bg-white !border !border-[#e3eeee] !text-[#0d3b3f] min-w-[220px] shadow-lg">
+                <DropdownMenuLabel className="text-xs text-[var(--cms-muted)] truncate max-w-[200px] font-normal">{user?.email || "Student"}</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-[#e3eeee]" />
+                <DropdownMenuItem onClick={() => navigate("/student/profile")} data-testid="student-menu-profile" className="cursor-pointer text-[#0d3b3f] focus:bg-[var(--cms-teal-soft)] focus:text-[#0d3b3f]">
+                  <User size={14} className="mr-2" /> My Profile
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-[#e3eeee]" />
+                <DropdownMenuItem
+                  onClick={async () => { await logout(); toast.success("See you soon!"); navigate("/login", { replace: true }); }}
+                  data-testid="student-menu-logout"
+                  className="text-[var(--cms-red)] focus:text-[var(--cms-red)] focus:bg-red-50 cursor-pointer"
+                >
+                  <LogOut size={14} className="mr-2" /> Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>

@@ -94,10 +94,7 @@ export default function StudentHome() {
                 <div className="p-4">
                   <p className="text-xs uppercase tracking-widest text-[var(--cms-muted)]">{Array.isArray(c.class_names) ? c.class_names[0] : c.class_name || "Course"}</p>
                   <h4 className="font-heading text-lg font-semibold mt-1 text-[var(--cms-teal-deep)]">{c.name}</h4>
-                  <div className="mt-3 h-2 rounded-full bg-[var(--cms-teal-soft)] overflow-hidden">
-                    <div className="h-full bg-[var(--cms-red)]" style={{ width: `${30 + (i * 17) % 60}%` }} />
-                  </div>
-                  <button className="cms-btn-primary mt-3 w-full text-sm">Continue</button>
+                  <button className="cms-btn-primary mt-4 w-full text-sm">Continue</button>
                 </div>
               </Link>
             );

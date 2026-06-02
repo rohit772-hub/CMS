@@ -35,9 +35,9 @@ export default function InstructorDashboard() {
   return (
     <div data-testid="instructor-dashboard">
       <PageHeader
-        eyebrow="Instructor Studio"
-        title={`Hi ${user?.name?.split(" ")[0] || "Instructor"}, here's today's snapshot.`}
-        subtitle="Your classroom at a glance — students, quizzes and the latest results."
+        eyebrow="School Admin Studio"
+        title={`Hi ${user?.name?.split(" ")[0] || "School Admin"}, here's today's snapshot.`}
+        subtitle="Your school at a glance — students, quizzes and the latest results."
       />
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
