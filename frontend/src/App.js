@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
@@ -44,12 +44,28 @@ import { InstructorQuizzes, InstructorQuizResults, InstructorResults } from "@/p
 import StudentDashboard from "@/pages/student/StudentDashboard";
 import StudentCourses from "@/pages/student/StudentCourses";
 import StudentSiteLayout from "@/components/layout/StudentSiteLayout";
-import StudentHome from "@/pages/student-site/StudentHome";
-import StudentClassroom, { SubjectList, ChapterViewer } from "@/pages/student-site/StudentClassroom";
-import StudentSubscription from "@/pages/student-site/StudentSubscription";
-import StudentShop from "@/pages/student-site/StudentShop";
-import StudentOrders from "@/pages/student-site/StudentOrders";
-import StudentFunHub from "@/pages/student-site/StudentFunHub";
+// Code-split the student site routes — these screens are larger and don't need to ship in the main bundle.
+const StudentHome = lazy(() => import("@/pages/student-site/StudentHome"));
+const StudentClassroom = lazy(() => import("@/pages/student-site/StudentClassroom"));
+const StudentSubject = lazy(() => import("@/pages/student-site/StudentClassroom").then((m) => ({ default: m.SubjectList })));
+const StudentChapter = lazy(() => import("@/pages/student-site/StudentClassroom").then((m) => ({ default: m.ChapterViewer })));
+const StudentSubscription = lazy(() => import("@/pages/student-site/StudentSubscription"));
+const StudentShop = lazy(() => import("@/pages/student-site/StudentShop"));
+const StudentOrders = lazy(() => import("@/pages/student-site/StudentOrders"));
+const StudentFunHub = lazy(() => import("@/pages/student-site/StudentFunHub"));
+
+function StudentSiteFallback() {
+  return (
+    <div className="h-[60vh] w-full flex items-center justify-center" data-testid="student-route-loading">
+      <div className="flex items-center gap-3 text-[var(--cms-teal-deep)]">
+        <span className="w-2.5 h-2.5 rounded-full bg-[var(--cms-teal)] animate-bounce" style={{ animationDelay: "0ms" }} />
+        <span className="w-2.5 h-2.5 rounded-full bg-[var(--cms-yellow)] animate-bounce" style={{ animationDelay: "120ms" }} />
+        <span className="w-2.5 h-2.5 rounded-full bg-[var(--cms-red)] animate-bounce" style={{ animationDelay: "240ms" }} />
+        <span className="text-xs uppercase tracking-widest ml-2">Loading…</span>
+      </div>
+    </div>
+  );
+}
 
 function HomeRedirect() {
   const { user, loading } = useAuth();
@@ -129,14 +145,14 @@ function AppRouter() {
       {/* Student site — new color-rich layout */}
       <Route path="/student" element={<ProtectedRoute allow={["student", "admin"]}><StudentSiteLayout /></ProtectedRoute>}>
         <Route index element={<Navigate to="/student/dashboard" replace />} />
-        <Route path="dashboard" element={<StudentHome />} />
-        <Route path="classroom" element={<StudentClassroom />} />
-        <Route path="classroom/:courseId" element={<SubjectList />} />
-        <Route path="classroom/:courseId/subjects/:subjectId" element={<ChapterViewer />} />
-        <Route path="subscription" element={<StudentSubscription />} />
-        <Route path="shop" element={<StudentShop />} />
-        <Route path="order" element={<StudentOrders />} />
-        <Route path="fun-hub" element={<StudentFunHub />} />
+        <Route path="dashboard" element={<Suspense fallback={<StudentSiteFallback />}><StudentHome /></Suspense>} />
+        <Route path="classroom" element={<Suspense fallback={<StudentSiteFallback />}><StudentClassroom /></Suspense>} />
+        <Route path="classroom/:courseId" element={<Suspense fallback={<StudentSiteFallback />}><StudentSubject /></Suspense>} />
+        <Route path="classroom/:courseId/subjects/:subjectId" element={<Suspense fallback={<StudentSiteFallback />}><StudentChapter /></Suspense>} />
+        <Route path="subscription" element={<Suspense fallback={<StudentSiteFallback />}><StudentSubscription /></Suspense>} />
+        <Route path="shop" element={<Suspense fallback={<StudentSiteFallback />}><StudentShop /></Suspense>} />
+        <Route path="order" element={<Suspense fallback={<StudentSiteFallback />}><StudentOrders /></Suspense>} />
+        <Route path="fun-hub" element={<Suspense fallback={<StudentSiteFallback />}><StudentFunHub /></Suspense>} />
         <Route path="profile" element={<AdminProfile />} />
       </Route>
 

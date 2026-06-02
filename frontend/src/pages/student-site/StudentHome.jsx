@@ -21,15 +21,24 @@ export default function StudentHome() {
   useEffect(() => {
     (async () => {
       try {
-        const [c, ch, nt] = await Promise.all([
-          api.get("/student/site/courses"),
-          api.get("/student/site/chapters?limit=6"),
-          api.get("/student/site/notifications"),
-        ]);
-        setCourses(c.data.courses || []);
-        setChapters(ch.data.chapters || []);
-        setNotifications(nt.data.notifications || []);
-      } catch (_) {}
+        // Single round-trip — backend runs the 3 queries in parallel via asyncio.gather.
+        const { data } = await api.get("/student/site/init");
+        setCourses(data.courses || []);
+        setChapters(data.chapters || []);
+        setNotifications(data.notifications || []);
+      } catch (_) {
+        // Best-effort fallback to individual endpoints (older deployments)
+        try {
+          const [c, ch, nt] = await Promise.all([
+            api.get("/student/site/courses"),
+            api.get("/student/site/chapters?limit=6"),
+            api.get("/student/site/notifications"),
+          ]);
+          setCourses(c.data.courses || []);
+          setChapters(ch.data.chapters || []);
+          setNotifications(nt.data.notifications || []);
+        } catch (__) {}
+      }
     })();
   }, []);
 

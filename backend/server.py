@@ -72,10 +72,11 @@ class RegisterReq(BaseModel):
 
 
 class LoginReq(BaseModel):
-    email: str  # email OR student_id
-    password: str
+    email: str = ""  # email OR student_id (students may use just student_id)
+    password: str = ""  # optional — students log in passwordless with just Student ID
     remember: bool = False
     role: Optional[Role] = None  # optional client-side hint
+    student_id: Optional[str] = None  # explicit field used by the passwordless student flow
 
 
 class ForgotReq(BaseModel):
@@ -245,35 +246,100 @@ async def register(payload: RegisterReq, response: Response):
     return {"user": doc_to_public(user).model_dump(mode="json"), "access_token": access}
 
 
+async def _validate_school_admin(user: dict) -> None:
+    """For instructor (School Admin) role, enforce that the user's assigned school exists and is active."""
+    if user.get("role") != "instructor":
+        return
+    school_name = (user.get("school_name") or "").strip()
+    if not school_name:
+        raise HTTPException(
+            status_code=403,
+            detail="Your School Admin account is not linked to any school. Please contact the platform admin.",
+        )
+    school = await db.schools.find_one({"name": school_name})
+    if not school:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Login blocked — your school '{school_name}' is not registered yet. Please contact the platform admin.",
+        )
+    if (school.get("status") or "active") == "disabled":
+        raise HTTPException(
+            status_code=403,
+            detail=f"Your school '{school_name}' is currently disabled. Please contact the platform admin.",
+        )
+
+
 @api.post("/auth/login")
 async def login(payload: LoginReq, request: Request, response: Response):
-    raw = payload.email.strip()
+    raw = (payload.student_id or payload.email or "").strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Please enter your login ID.")
     email = raw.lower()
     identifier = email
     await _check_lockout(identifier)
 
-    # Try email first
-    user = await db.users.find_one({"email": email})
-    # If not found and the raw value isn't an email, try matching a student by student_id
-    if not user and "@" not in raw:
+    # Passwordless student login path — student_id OR role=student + non-email + no password
+    role_hint = payload.role
+    looks_like_student_id = ("@" not in raw)
+    passwordless = (not payload.password) and (payload.student_id or (role_hint == "student" and looks_like_student_id))
+
+    user = None
+    if passwordless:
+        # Student ID lookup ONLY
         stu = await db.students_admin.find_one({"student_id": raw})
-        if stu and stu.get("email"):
-            user = await db.users.find_one({"email": stu["email"].lower()})
-    if not user or not user.get("password_hash"):
-        await _record_failed(identifier)
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        if not stu or not stu.get("email"):
+            await _record_failed(identifier)
+            raise HTTPException(status_code=401, detail="Invalid Student ID. Please contact your school/admin.")
+        user = await db.users.find_one({"email": stu["email"].lower()})
+        if not user:
+            await _record_failed(identifier)
+            raise HTTPException(status_code=401, detail="Invalid Student ID. Please contact your school/admin.")
+        if user.get("role") != "student":
+            raise HTTPException(status_code=403, detail="This Student ID is not registered as a student.")
+    else:
+        # Try email first
+        user = await db.users.find_one({"email": email})
+        # If not found and the raw value isn't an email, try matching a student by student_id
+        if not user and looks_like_student_id:
+            stu = await db.students_admin.find_one({"student_id": raw})
+            if stu and stu.get("email"):
+                user = await db.users.find_one({"email": stu["email"].lower()})
+        if not user or not user.get("password_hash"):
+            await _record_failed(identifier)
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        if not verify_password(payload.password, user["password_hash"]):
+            await _record_failed(identifier)
+            raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    if not verify_password(payload.password, user["password_hash"]):
-        await _record_failed(identifier)
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+    if role_hint and user["role"] != role_hint:
+        raise HTTPException(status_code=403, detail=f"This account is not registered as a {role_hint}.")
 
-    if payload.role and user["role"] != payload.role:
-        raise HTTPException(status_code=403, detail=f"This account is not registered as a {payload.role}.")
+    # School-Admin school existence/active check
+    await _validate_school_admin(user)
 
     await _clear_attempts(identifier)
     access = create_access_token(user["user_id"], user["email"], user["role"])
-    refresh = create_refresh_token(user["user_id"]) if payload.remember else create_refresh_token(user["user_id"])
+    refresh = create_refresh_token(user["user_id"])
     set_auth_cookies(response, access, refresh, remember=payload.remember)
+    pub = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0, "password_hash": 0})
+    return {"user": doc_to_public(pub).model_dump(mode="json"), "access_token": access}
+
+
+@api.post("/auth/student-login")
+async def student_login(payload: LoginReq, request: Request, response: Response):
+    """Dedicated passwordless student endpoint — Student ID only."""
+    raw = (payload.student_id or payload.email or "").strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Please enter your Student ID.")
+    stu = await db.students_admin.find_one({"student_id": raw})
+    if not stu or not stu.get("email"):
+        raise HTTPException(status_code=401, detail="Invalid Student ID. Please contact your school/admin.")
+    user = await db.users.find_one({"email": stu["email"].lower()})
+    if not user or user.get("role") != "student":
+        raise HTTPException(status_code=401, detail="Invalid Student ID. Please contact your school/admin.")
+    access = create_access_token(user["user_id"], user["email"], user["role"])
+    refresh = create_refresh_token(user["user_id"])
+    set_auth_cookies(response, access, refresh, remember=False)
     pub = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0, "password_hash": 0})
     return {"user": doc_to_public(pub).model_dump(mode="json"), "access_token": access}
 
@@ -753,6 +819,45 @@ async def student_site_notifications(user: dict = Depends(get_current_user)):
 async def student_site_fun_hub(user: dict = Depends(require_role("student", "admin", "instructor"))):
     items = await db.fun_hub.find({"status": {"$ne": "disabled"}}, {"_id": 0}).sort("created_at", -1).to_list(200)
     return {"links": items}
+
+
+@api.get("/student/site/init")
+async def student_site_init(user: dict = Depends(get_current_user)):
+    """One round-trip init for the student dashboard.
+
+    Returns courses, latest chapters, notifications and user profile to remove the
+    waterfall of separate requests on the student home screen.
+    """
+    role = user.get("role")
+    if role not in ("student", "admin", "instructor"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    # Run all queries in parallel
+    courses_task = db.courses_admin.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    chapters_task = db.chapters.find({}, {"_id": 0}).sort("created_at", -1).limit(6).to_list(6)
+
+    # Build notification filter for the current viewer
+    if role in ("admin", "instructor"):
+        notif_filter = {}
+    else:
+        stu = await db.students_admin.find_one({"email": (user.get("email") or "").lower()}, {"_id": 0}) or {}
+        user_school = stu.get("school_name") or ""
+        user_class = stu.get("class_name") or ""
+        ors = [{"audience": "all"}, {"audience": {"$exists": False}}, {"audience": None}]
+        if user_school:
+            ors.append({"audience": "school", "school_name": user_school})
+        if user_class:
+            ors.append({"audience": "class", "class_name": user_class})
+        notif_filter = {"$or": ors, "status": {"$ne": "disabled"}}
+    notif_task = db.notifications.find(notif_filter, {"_id": 0}).sort("created_at", -1).to_list(20)
+
+    courses, chapters, notifications = await asyncio.gather(courses_task, chapters_task, notif_task)
+    return {
+        "courses": courses,
+        "chapters": chapters,
+        "notifications": notifications,
+        "user": {"name": user.get("name"), "email": user.get("email"), "role": role},
+    }
 
 
 # ---------- Health ----------

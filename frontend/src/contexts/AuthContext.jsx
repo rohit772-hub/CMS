@@ -28,8 +28,8 @@ export function AuthProvider({ children }) {
     checkAuth();
   }, [checkAuth]);
 
-  const login = async ({ email, password, remember, role }) => {
-    const { data } = await api.post("/auth/login", { email, password, remember, role });
+  const login = async (payload) => {
+    const { data } = await api.post("/auth/login", payload);
     if (data.access_token) setToken(data.access_token);
     setUser(data.user);
     return data.user;

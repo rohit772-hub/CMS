@@ -1,0 +1,49 @@
+{
+  "summary": "Phase 2.5 validation — passwordless student login, School Admin school validation, batched /student/site/init endpoint, and new logo. 11/11 backend pytest cases + 9/9 frontend Playwright assertions passed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase25_auth.py",
+    "/app/test_reports/pytest/phase25.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now ~1400 lines — consider splitting into modules (auth, resources, student_site, admin) for maintainability.",
+    "Frontend fires /api/student/site/init TWICE on dashboard mount (likely React StrictMode double-effect in dev). Not a regression vs requirement (no 3 legacy calls), but consider gating with a ref/abort controller to avoid double work in dev.",
+    "Passwordless heuristic in /auth/login is currently safe because passwords are required for non-students, but if a future user is ever created with no password_hash + non-student role, the email-OR-student_id branch could behave unexpectedly. Consider locking passwordless to role_hint=='student' explicitly to remove ambiguity."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase25_auth.py"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100% (9/9)"},
+  "test_credentials": "admin@cmsedu.ai/Demo@123, instructor@cmsedu.ai/Demo@123 (school: Ridgeview Academy), STU-9999 (passwordless), student@cmsedu.ai/Demo@123",
+  "seed_data_creation": "Test created two ephemeral school-admin docs with unique uuid emails (orphan-qa-<hex>@x.ai, empty-school-qa-<hex>@x.ai) tied to non-existent schools PhantomSchool / TempSchool. Safe to leave; future re-runs use fresh uuids.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 2.5 fully validated. Backend tests live at /app/backend/tests/test_phase25_auth.py and join the existing phase1/phase2/admin_resources/auth_lms suites. The /api/student/site/init batch endpoint returns {courses, chapters, notifications, user} via asyncio.gather (~150-400ms typical). Student site routes are React.lazy-loaded; Brand component loads /cms-logo.png (1MB, naturalWidth=1024). Phase 3 (Razorpay + AI chatbot) is the next scope.",
+  "verified_flows": [
+    "POST /api/auth/login {student_id:'STU-9999', role:'student'} -> 200 with student token (no password)",
+    "POST /api/auth/login with invalid student_id -> 401 'Invalid Student ID. Please contact your school/admin.'",
+    "POST /api/auth/student-login {student_id:'STU-9999'} -> 200",
+    "POST /api/auth/student-login with bad id -> 401 same error message",
+    "POST /api/auth/login email+password (admin) still 200",
+    "POST /api/auth/login as instructor with PhantomSchool school_name -> 403 'PhantomSchool is not registered'",
+    "POST /api/auth/login as instructor with unregistered TempSchool -> 403 not registered",
+    "POST /api/auth/login instructor@cmsedu.ai (Ridgeview Academy) -> 200",
+    "GET /api/student/site/init as student -> 200 with arrays populated, ~<500ms",
+    "GET /api/student/site/init as admin -> all notifications (no audience filter)",
+    "Frontend /login/student: only student ID input, NO password field, submit labeled 'Sign in'",
+    "Frontend /login/student STU-9999 -> /student/dashboard, toast 'Welcome back, Noah!'",
+    "Frontend invalid ID -> inline error 'Invalid Student ID. Please contact your school/admin.'",
+    "Frontend /login/instructor still has both email + password fields",
+    "GET /cms-logo.png returns 200, ~1MB, naturalWidth=1024",
+    "Student dashboard fires /student/site/init only (0 legacy /courses, /chapters, /notifications calls)"
+  ]
+}

@@ -13,13 +13,13 @@ import { formatApiError } from "../../lib/api";
 const TITLES = {
   admin: { title: "Admin sign-in", subtitle: "Welcome back, captain. Your console awaits." },
   instructor: { title: "School Admin sign-in", subtitle: "Manage your school, students and courses." },
-  student: { title: "Student sign-in", subtitle: "Pick up your streak right where you left off." },
+  student: { title: "Student sign-in", subtitle: "Just type your Student ID — that's all you need." },
 };
 
 const DEMOS = {
   admin: { email: "admin@cmsedu.ai", password: "Demo@123" },
   instructor: { email: "instructor@cmsedu.ai", password: "Demo@123" },
-  student: { email: "STU-9999", password: "Demo@123" },
+  student: { email: "STU-9999", password: "" },
 };
 
 export default function Login() {
@@ -44,10 +44,14 @@ export default function Login() {
   const onSubmit = async (e) => {
     e.preventDefault();
     setErr("");
-    if (!email || !password) { setErr(`${idLabel} and password are required.`); return; }
+    if (!email) { setErr(`${idLabel} is required.`); return; }
+    if (!isStudent && !password) { setErr("Password is required."); return; }
     setBusy(true);
     try {
-      const u = await login({ email: email.trim(), password, remember, role });
+      const payload = isStudent
+        ? { student_id: email.trim(), role: "student", remember }
+        : { email: email.trim(), password, remember, role };
+      const u = await login(payload);
       toast.success(`Welcome back, ${u.name.split(" ")[0]}!`);
       navigate(`/${u.role}/dashboard`, { replace: true });
     } catch (e) {
@@ -75,44 +79,51 @@ export default function Login() {
               data-testid="login-email-input"
             />
           </div>
+          {isStudent && (
+            <p className="text-[11px] text-[#64748B]">No password needed — just your Student ID. If yours isn't recognized, please contact your school admin.</p>
+          )}
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password" className="text-sm font-medium text-[#A0ABC0]">Password</Label>
-            <Link to="/forgot-password" className="text-xs text-cyan-300 hover:text-cyan-200" data-testid="forgot-password-link">
-              Forgot password?
-            </Link>
+        {!isStudent && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password" className="text-sm font-medium text-[#A0ABC0]">Password</Label>
+              <Link to="/forgot-password" className="text-xs text-cyan-300 hover:text-cyan-200" data-testid="forgot-password-link">
+                Forgot password?
+              </Link>
+            </div>
+            <div className="relative">
+              <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
+              <Input
+                id="password" type={show ? "text" : "password"} autoComplete="current-password" required
+                value={password} onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="pl-9 pr-10 h-12 bg-white/5 border-white/10 text-white placeholder:text-[#64748B] focus-visible:ring-cyan-400/60"
+                data-testid="login-password-input"
+              />
+              <button
+                type="button" onClick={() => setShow((s) => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A0ABC0] hover:text-white"
+                data-testid="login-toggle-password"
+                aria-label="Toggle password visibility"
+              >
+                {show ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
-          <div className="relative">
-            <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
-            <Input
-              id="password" type={show ? "text" : "password"} autoComplete="current-password" required
-              value={password} onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="pl-9 pr-10 h-12 bg-white/5 border-white/10 text-white placeholder:text-[#64748B] focus-visible:ring-cyan-400/60"
-              data-testid="login-password-input"
-            />
-            <button
-              type="button" onClick={() => setShow((s) => !s)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A0ABC0] hover:text-white"
-              data-testid="login-toggle-password"
-              aria-label="Toggle password visibility"
-            >
-              {show ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
-        </div>
+        )}
 
         <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2 text-sm text-[#A0ABC0] cursor-pointer">
-            <Checkbox
-              checked={remember} onCheckedChange={(v) => setRemember(!!v)}
-              className="border-white/20 data-[state=checked]:bg-cyan-400 data-[state=checked]:text-black"
-              data-testid="login-remember-checkbox"
-            />
-            Remember me
-          </label>
+          {!isStudent ? (
+            <label className="flex items-center gap-2 text-sm text-[#A0ABC0] cursor-pointer">
+              <Checkbox
+                checked={remember} onCheckedChange={(v) => setRemember(!!v)}
+                className="border-white/20 data-[state=checked]:bg-cyan-400 data-[state=checked]:text-black"
+                data-testid="login-remember-checkbox"
+              />
+              Remember me
+            </label>
+          ) : <span />}
           <button type="button" onClick={fillDemo} className="text-xs text-[#64748B] hover:text-cyan-300" data-testid="login-fill-demo">
             Use demo {role}
           </button>
