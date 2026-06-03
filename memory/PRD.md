@@ -52,6 +52,14 @@ Enterprise-grade Multi-Role LMS (Admin, **School Admin**, Student) with modern S
 - [x] Admin → Student Notifications (with banner images)
 - [x] General Student Site card/spacing/icon polish
 
+### Phase 4 — Bug fix: School Admin auto-attach (shipped ✅ 2026-02)
+- **Problem**: When a School Admin added a student via `/api/resources/students`, the `school_name` was empty in the payload (the form correctly omits the field). Result: the student was invisible to the School Admin's scoped table (filter mismatch) and the Main Admin's table showed an empty "School" column requiring manual fix-up.
+- **Fix**: `create_resource`, `update_resource`, `bulk_create`, `delete_resource` and `toggle_status` now use `get_current_user` + `_can(kind,'write',user)` (instead of `require_role('admin')`). For instructor users on school-scoped kinds (`students, classes, courses, subjects, chapters, quizzes, quiz-results, results`) the server **overrides** `school_name`, `school_id` and `school_code` from `db.schools.find_one({"name": user.school_name})` regardless of what the client sent → spoof-proof.
+- **Defense in depth**: instructor's PUT cannot change `school_name`; PUT/DELETE against a record belonging to a different school returns `403 You can only update records that belong to your school.`
+- **KIND_PERMS widened**: instructor now has `write` on classes, courses, subjects, chapters, quizzes (was admin-only), matching the role's actual job.
+- **Frontend**: `ManageStudents` "School ID" column now prefers `r.school_code` (persisted) over the runtime lookup of `schools`.
+- Tests: `/app/backend/tests/test_school_admin_autoattach.py`. **15/15 backend pass + visual frontend confirmation.**
+
 ### Phase 3 — Integrations (shipped ✅ 2026-02)
 - [x] **Razorpay Buy Now flow** — `/api/payments/{config,create-order,verify,webhook}` endpoints + 3-step `BuyNowDialog` (Address → Payment → Done) on student Shop. HMAC-SHA256 signature verification on /verify. Currently returns 503 'not configured' until user adds `RAZORPAY_KEY_ID` + `RAZORPAY_KEY_SECRET` to `/app/backend/.env`.
 - [x] **AI Chatbot 'Spark'** — `gemini-3-flash-preview` via Emergent LLM key + emergentintegrations. Endpoints: `/chat/{send,history,sessions,session/{id} DELETE}`. Floating bubble on every student-site page; multi-turn memory persisted in Mongo `chat_messages`, session_id stored in `localStorage`. Suggestion chips, "new chat" button, system prompt scoped to K-12 study help.
