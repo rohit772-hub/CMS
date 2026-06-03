@@ -1043,8 +1043,10 @@ async def list_resources(
 
 
 @api.post("/admin/resources/{kind}")
-async def create_resource(kind: str, payload: dict, user: dict = Depends(require_role("admin"))):
+async def create_resource(kind: str, payload: dict, user: dict = Depends(get_current_user)):
     coll = _require_kind(kind)
+    if not _can(kind, "write", user):
+        raise HTTPException(status_code=403, detail="Forbidden")
     doc = dict(payload or {})
     doc.pop("_id", None); doc.pop("id", None)
     doc["id"] = f"{kind[:3]}_{uuid.uuid4().hex[:12]}"
@@ -1052,6 +1054,20 @@ async def create_resource(kind: str, payload: dict, user: dict = Depends(require
     now = datetime.now(timezone.utc).isoformat()
     doc["created_at"] = now
     doc["updated_at"] = now
+
+    # School Admin (instructor) — auto-attach school context so they never have to pick it.
+    # This is enforced server-side and overrides anything the client may have sent, which guarantees
+    # the student appears in BOTH this School Admin's table and the Main Admin's table with the
+    # correct School Name auto-populated.
+    if user.get("role") == "instructor" and kind in ("students", "classes", "courses", "subjects", "chapters", "quizzes", "quiz-results", "results"):
+        sname = (user.get("school_name") or "").strip()
+        if not sname:
+            raise HTTPException(status_code=403, detail="Your account is not linked to any school. Please contact the platform admin.")
+        school = await db.schools.find_one({"name": sname}, {"_id": 0, "id": 1, "code": 1, "name": 1})
+        doc["school_name"] = sname
+        if school:
+            if school.get("id"):   doc["school_id"]   = school["id"]
+            if school.get("code"): doc["school_code"] = school["code"]
 
     # Special handling: school-admins + students also create a user for login
     if kind == "school-admins":
@@ -1100,8 +1116,10 @@ async def create_resource(kind: str, payload: dict, user: dict = Depends(require
 
 
 @api.put("/admin/resources/{kind}/{rid}")
-async def update_resource(kind: str, rid: str, payload: dict, user: dict = Depends(require_role("admin"))):
+async def update_resource(kind: str, rid: str, payload: dict, user: dict = Depends(get_current_user)):
     coll = _require_kind(kind)
+    if not _can(kind, "write", user):
+        raise HTTPException(status_code=403, detail="Forbidden")
     update = dict(payload or {})
     update.pop("_id", None); update.pop("id", None); update.pop("created_at", None)
     update["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -1115,6 +1133,21 @@ async def update_resource(kind: str, rid: str, payload: dict, user: dict = Depen
                 {"$set": {"password_hash": hash_password(update["password"])}},
             )
         update.pop("password", None)
+
+    # School Admin (instructor) — cannot change school_name on update; force-lock to their school.
+    if user.get("role") == "instructor" and kind in ("students", "classes", "courses", "subjects", "chapters", "quizzes", "quiz-results", "results"):
+        sname = (user.get("school_name") or "").strip()
+        if sname:
+            update["school_name"] = sname
+            school = await db.schools.find_one({"name": sname}, {"_id": 0, "id": 1, "code": 1})
+            if school:
+                if school.get("id"):   update["school_id"]   = school["id"]
+                if school.get("code"): update["school_code"] = school["code"]
+        # Also: instructor can only update rows that already belong to their school.
+        existing = await db[coll].find_one({"id": rid}, {"_id": 0, "school_name": 1})
+        if not existing or (existing.get("school_name") and existing.get("school_name") != sname):
+            raise HTTPException(status_code=403, detail="You can only update records that belong to your school.")
+
     result = await db[coll].update_one({"id": rid}, {"$set": update})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Resource not found")
@@ -1124,8 +1157,15 @@ async def update_resource(kind: str, rid: str, payload: dict, user: dict = Depen
 
 
 @api.delete("/admin/resources/{kind}/{rid}")
-async def delete_resource(kind: str, rid: str, user: dict = Depends(require_role("admin"))):
+async def delete_resource(kind: str, rid: str, user: dict = Depends(get_current_user)):
     coll = _require_kind(kind)
+    if not _can(kind, "write", user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    # School Admin can only delete rows that belong to their school
+    if user.get("role") == "instructor":
+        existing = await db[coll].find_one({"id": rid}, {"_id": 0, "school_name": 1})
+        if existing and existing.get("school_name") and existing.get("school_name") != (user.get("school_name") or "").strip():
+            raise HTTPException(status_code=403, detail="You can only delete records that belong to your school.")
     doc = await db[coll].find_one({"id": rid}, {"_id": 0})
     result = await db[coll].delete_one({"id": rid})
     if result.deleted_count == 0:
@@ -1135,8 +1175,10 @@ async def delete_resource(kind: str, rid: str, user: dict = Depends(require_role
 
 
 @api.patch("/admin/resources/{kind}/{rid}/status")
-async def toggle_status(kind: str, rid: str, payload: dict, user: dict = Depends(require_role("admin"))):
+async def toggle_status(kind: str, rid: str, payload: dict, user: dict = Depends(get_current_user)):
     coll = _require_kind(kind)
+    if not _can(kind, "write", user):
+        raise HTTPException(status_code=403, detail="Forbidden")
     new_status = (payload or {}).get("status") or "active"
     if new_status not in ("active", "disabled"):
         raise HTTPException(status_code=400, detail="status must be 'active' or 'disabled'")
@@ -1152,13 +1194,25 @@ async def toggle_status(kind: str, rid: str, payload: dict, user: dict = Depends
 
 
 @api.post("/admin/resources/{kind}/bulk")
-async def bulk_create(kind: str, payload: dict, user: dict = Depends(require_role("admin"))):
+async def bulk_create(kind: str, payload: dict, user: dict = Depends(get_current_user)):
     coll = _require_kind(kind)
+    if not _can(kind, "write", user):
+        raise HTTPException(status_code=403, detail="Forbidden")
     rows = (payload or {}).get("items") or []
     if not isinstance(rows, list) or not rows:
         raise HTTPException(status_code=400, detail="items array is required")
     now = datetime.now(timezone.utc).isoformat()
     inserted = []
+
+    # Resolve School Admin's school once (so we don't hit Mongo for every row).
+    school_ctx = None
+    if user.get("role") == "instructor":
+        sname = (user.get("school_name") or "").strip()
+        if not sname:
+            raise HTTPException(status_code=403, detail="Your account is not linked to any school. Please contact the platform admin.")
+        school = await db.schools.find_one({"name": sname}, {"_id": 0, "id": 1, "code": 1, "name": 1}) or {}
+        school_ctx = {"school_name": sname, "school_id": school.get("id"), "school_code": school.get("code")}
+
     for raw in rows[:2000]:
         if not isinstance(raw, dict):
             continue
@@ -1168,6 +1222,13 @@ async def bulk_create(kind: str, payload: dict, user: dict = Depends(require_rol
         d["status"] = d.get("status") or "active"
         d["created_at"] = now
         d["updated_at"] = now
+
+        # Auto-attach school context for School Admin bulk uploads (Excel import etc.)
+        if school_ctx and kind in ("students", "classes", "courses", "subjects", "chapters", "quizzes", "quiz-results", "results"):
+            d["school_name"] = school_ctx["school_name"]
+            if school_ctx.get("school_id"):   d["school_id"]   = school_ctx["school_id"]
+            if school_ctx.get("school_code"): d["school_code"] = school_ctx["school_code"]
+
         if kind == "school-admins" and d.get("email"):
             email = d["email"].lower().strip()
             school_name = (d.get("school_name") or "").strip()

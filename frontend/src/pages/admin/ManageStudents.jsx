@@ -36,8 +36,9 @@ export default function ManageStudents() {
       ]}
       columns={[
         { key: "school_code", label: "School ID", render: (r) => {
-          const s = schools.find((x) => x.name === r.school_name);
-          return <span className="font-mono text-xs text-cyan-200">{s?.code || "—"}</span>;
+          // Prefer the auto-attached school_code stored on the student record (from the School Admin add flow).
+          const code = r.school_code || (schools.find((x) => x.name === r.school_name) || {}).code;
+          return <span className="font-mono text-xs text-cyan-200">{code || "—"}</span>;
         }},
         { key: "school_name", label: "School" },
         { key: "class_name", label: "Class" },
